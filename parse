@@ -1,0 +1,132 @@
+from fitparse import FitFile
+import pandas as pd
+import numpy as np
+from datetime import timedelta
+import sys
+
+# === USER CONFIGURATION ===
+FTP = 242  # Functional Threshold Power (Watts)
+HRmax = 180  # Estimated maximum heart rate
+# ===========================
+
+def load_fit_data(filepath):
+    fitfile = FitFile(filepath)
+    records = []
+    for record in fitfile.get_messages("record"):
+        vals = record.get_values()
+        records.append({
+            'timestamp': vals.get('timestamp'),
+            'power': vals.get('power'),
+            'heart_rate': vals.get('heart_rate'),
+            'cadence': vals.get('cadence'),
+            'torque_effectiveness': vals.get('torque_effectiveness')
+        })
+    return pd.DataFrame(records)
+
+def process_fit_data(df):
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df = df.set_index('timestamp').dropna(subset=['power'])
+    df['power'] = df['power'].astype(float)
+    df['heart_rate'] = df['heart_rate'].astype(float)
+    df['cadence'] = df['cadence'].astype(float)
+    df['torque_effectiveness'] = df['torque_effectiveness'].astype(float)
+
+    # Duration
+    duration_sec = (df.index[-1] - df.index[0]).total_seconds()
+    duration_min = duration_sec / 60
+
+    # Core metrics
+    avg_power = df['power'].mean()
+    max_power = df['power'].max()
+    np_power = (df['power'] ** 4).mean() ** 0.25
+    if_val = np_power / FTP
+    tss = (df.shape[0] * (np_power ** 2)) / (FTP ** 2 * 3600) * 100
+
+    avg_hr = df['heart_rate'].mean()
+    max_hr = df['heart_rate'].max()
+    avg_cad = df['cadence'].mean()
+    max_cad = df['cadence'].max()
+    avg_te = df['torque_effectiveness'].mean()
+
+    # HR zones
+    df['hr_pct'] = df['heart_rate'] / HRmax
+    hr_zones = {
+        'Z1 (<60%)': (0.0, 0.6),
+        'Z2 (60–70%)': (0.6, 0.7),
+        'Z3 (70–80%)': (0.7, 0.8),
+        'Z4 (80–90%)': (0.8, 0.9),
+        'Z5 (90–100%)': (0.9, 1.0),
+    }
+    hr_time = {
+        label: round(((df['hr_pct'] >= low) & (df['hr_pct'] < high)).sum() / 60, 1)
+        for label, (low, high) in hr_zones.items()
+    }
+
+    # HR drift
+    half = df.shape[0] // 2
+    hr_drift = round((df['heart_rate'].iloc[half:].mean() - df['heart_rate'].iloc[:half].mean()) / df['heart_rate'].iloc[:half].mean() * 100, 2)
+
+    # Efficiency Factor
+    ef = np_power / avg_hr if avg_hr else None
+
+    # Power duration curve (up to 1 hour)
+    durations = [5, 10, 15, 30, 60, 120, 180, 300, 600, 900, 1200, 1800, 2400, 3600]
+    power_curve = {
+        f"{d}s": round(df['power'].rolling(d).mean().max(), 1)
+        for d in durations if len(df['power']) >= d
+    }
+
+    # Time in power zones
+    df['power_pct'] = df['power'] / FTP
+    power_zones = {
+        'Z1 (<55%)': (0.0, 0.55),
+        'Z2 (55–75%)': (0.55, 0.75),
+        'Z3 (76–90%)': (0.76, 0.90),
+        'Z4 (91–105%)': (0.91, 1.05),
+        'Z5 (106–120%)': (1.06, 1.20),
+        'Z6+ (>120%)': (1.20, np.inf),
+    }
+    zone_time = {
+        label: round(((df['power_pct'] >= low) & (df['power_pct'] < high)).sum() / 60, 1)
+        for label, (low, high) in power_zones.items()
+    }
+
+    # Cadence by power zone
+    cadence_by_zone = {
+        label: round(df.loc[(df['power_pct'] >= low) & (df['power_pct'] < high), 'cadence'].mean(), 1)
+        for label, (low, high) in power_zones.items()
+    }
+
+    # Final output
+    return {
+        "duration_min": duration_min,
+        "avg_power": avg_power,
+        "max_power": max_power,
+        "np_power": np_power,
+        "if_val": if_val,
+        "tss": tss,
+        "avg_hr": avg_hr,
+        "max_hr": max_hr,
+        "avg_cadence": avg_cad,
+        "max_cadence": max_cad,
+        "torque_effectiveness": avg_te,
+        "efficiency_factor": ef,
+        "hr_drift_pct": hr_drift,
+        "hr_zones": hr_time,
+        "power_curve": power_curve,
+        "power_zone_time": zone_time,
+        "cadence_by_power_zone": cadence_by_zone
+    }
+
+if __name__ == "__main__":
+    df = load_fit_data(sys.argv[1])
+    results = process_fit_data(df)
+
+    print("\n--- Ride Summary ---")
+    for k, v in results.items():
+        if isinstance(v, dict):
+            print(f"\n{k.replace('_', ' ').title()}:")
+            for subk, subv in v.items():
+                print(f"  {subk}: {subv}")
+        else:
+            print(f"{k.replace('_', ' ').title()}: {round(v, 2) if isinstance(v, float) else v}")

@@ -1,0 +1,109 @@
+from fitparse import FitFile
+import pandas as pd
+import numpy as np
+from datetime import timedelta
+import sys
+
+# === USER CONFIGURATION ===
+FTP = 242
+HRmax = 180
+EFFORT_THRESHOLD = 0.90  # Effort starts at >90% FTP
+EFFORT_MIN_DURATION = 30  # seconds
+RECOVERY_THRESHOLD = 0.60  # Recovery when power <60% FTP
+RECOVERY_MIN_DURATION = 15  # seconds
+# ===========================
+
+def load_fit_data(filepath):
+    fitfile = FitFile(filepath)
+    records = []
+    for record in fitfile.get_messages("record"):
+        vals = record.get_values()
+        records.append({
+            'timestamp': vals.get('timestamp'),
+            'power': vals.get('power'),
+            'heart_rate': vals.get('heart_rate'),
+            'cadence': vals.get('cadence'),
+            'torque_effectiveness': vals.get('torque_effectiveness')
+        })
+    return pd.DataFrame(records)
+
+def tag_intervals(df):
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df = df.set_index('timestamp').dropna(subset=['power'])
+    df['power'] = df['power'].astype(float)
+    df['heart_rate'] = df['heart_rate'].astype(float)
+    df['cadence'] = df['cadence'].astype(float)
+    df['torque_effectiveness'] = df['torque_effectiveness'].astype(float)
+
+    df['power_pct'] = df['power'] / FTP
+    in_effort = False
+    in_recovery = False
+    intervals = []
+    recoveries = []
+    start_idx = None
+
+    for i in range(len(df)):
+        p_pct = df['power_pct'].iloc[i]
+
+        # Effort interval tagging
+        if not in_effort and p_pct >= EFFORT_THRESHOLD:
+            in_effort = True
+            start_idx = df.index[i]
+        elif in_effort and p_pct < RECOVERY_THRESHOLD:
+            end_idx = df.index[i]
+            duration = (end_idx - start_idx).total_seconds()
+            if duration >= EFFORT_MIN_DURATION:
+                interval = df[start_idx:end_idx]
+                intervals.append(interval)
+            in_effort = False
+
+        # Recovery interval tagging
+        if not in_recovery and p_pct <= RECOVERY_THRESHOLD:
+            in_recovery = True
+            start_idx = df.index[i]
+        elif in_recovery and p_pct > RECOVERY_THRESHOLD:
+            end_idx = df.index[i]
+            duration = (end_idx - start_idx).total_seconds()
+            if duration >= RECOVERY_MIN_DURATION:
+                recovery = df[start_idx:end_idx]
+                recoveries.append(recovery)
+            in_recovery = False
+
+    return intervals, recoveries
+
+def summarize_interval(interval_df):
+    duration = (interval_df.index[-1] - interval_df.index[0]).total_seconds()
+    avg_power = interval_df['power'].mean()
+    np_power = (interval_df['power'] ** 4).mean() ** 0.25
+    avg_hr = interval_df['heart_rate'].mean()
+    hr_drift = ((interval_df['heart_rate'].iloc[len(interval_df)//2:].mean() -
+                 interval_df['heart_rate'].iloc[:len(interval_df)//2].mean()) /
+                 interval_df['heart_rate'].iloc[:len(interval_df)//2].mean()) * 100
+    avg_cad = interval_df['cadence'].mean()
+    avg_te = interval_df['torque_effectiveness'].mean()
+    return {
+        'duration_sec': round(duration, 1),
+        'avg_power': round(avg_power, 1),
+        'np_power': round(np_power, 1),
+        'avg_hr': round(avg_hr, 1),
+        'hr_drift_pct': round(hr_drift, 2),
+        'avg_cadence': round(avg_cad, 1),
+        'avg_torque_eff': round(avg_te, 1)
+    }
+
+def main():
+    df = load_fit_data(sys.argv[1])
+    efforts, recoveries = tag_intervals(df)
+
+    print("\n--- Detected Efforts ---")
+    for i, interval in enumerate(efforts, 1):
+        summary = summarize_interval(interval)
+        print(f"Interval {i}: {summary}")
+
+    print("\n--- Detected Recoveries ---")
+    for i, interval in enumerate(recoveries, 1):
+        summary = summarize_interval(interval)
+        print(f"Recovery {i}: {summary}")
+
+if __name__ == "__main__":
+    main()
