@@ -3,15 +3,7 @@ import pandas as pd
 import numpy as np
 from datetime import timedelta
 import sys
-
-# === USER CONFIGURATION ===
-FTP = 242
-HRmax = 180
-EFFORT_THRESHOLD = 0.90  # Effort starts at >90% FTP
-EFFORT_MIN_DURATION = 30  # seconds
-RECOVERY_THRESHOLD = 0.60  # Recovery when power <60% FTP
-RECOVERY_MIN_DURATION = 15  # seconds
-# ===========================
+from config import FTP, HRMAX
 
 def load_fit_data(filepath):
     fitfile = FitFile(filepath)
@@ -27,7 +19,19 @@ def load_fit_data(filepath):
         })
     return pd.DataFrame(records)
 
-def tag_intervals(df):
+def load_lap_data(filepath):
+    fitfile = FitFile(filepath)
+    laps = []
+    for lap in fitfile.get_messages("lap"):
+        vals = lap.get_values()
+        laps.append({
+            'start_time': vals.get('start_time'),
+            'total_elapsed_time': vals.get('total_elapsed_time'),
+            'total_timer_time': vals.get('total_timer_time')
+        })
+    return laps
+
+def get_lap_intervals(df, laps):
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     df = df.set_index('timestamp').dropna(subset=['power'])
     df['power'] = df['power'].astype(float)
@@ -35,41 +39,18 @@ def tag_intervals(df):
     df['cadence'] = df['cadence'].astype(float)
     df['torque_effectiveness'] = df['torque_effectiveness'].astype(float)
 
-    df['power_pct'] = df['power'] / FTP
-    in_effort = False
-    in_recovery = False
     intervals = []
-    recoveries = []
-    start_idx = None
+    for lap in laps:
+        start_time = pd.to_datetime(lap['start_time'])
+        end_time = start_time + timedelta(seconds=lap['total_elapsed_time'])
 
-    for i in range(len(df)):
-        p_pct = df['power_pct'].iloc[i]
+        # Filter records within this lap's time range
+        lap_data = df[(df.index >= start_time) & (df.index <= end_time)]
 
-        # Effort interval tagging
-        if not in_effort and p_pct >= EFFORT_THRESHOLD:
-            in_effort = True
-            start_idx = df.index[i]
-        elif in_effort and p_pct < RECOVERY_THRESHOLD:
-            end_idx = df.index[i]
-            duration = (end_idx - start_idx).total_seconds()
-            if duration >= EFFORT_MIN_DURATION:
-                interval = df[start_idx:end_idx]
-                intervals.append(interval)
-            in_effort = False
+        if not lap_data.empty:
+            intervals.append(lap_data)
 
-        # Recovery interval tagging
-        if not in_recovery and p_pct <= RECOVERY_THRESHOLD:
-            in_recovery = True
-            start_idx = df.index[i]
-        elif in_recovery and p_pct > RECOVERY_THRESHOLD:
-            end_idx = df.index[i]
-            duration = (end_idx - start_idx).total_seconds()
-            if duration >= RECOVERY_MIN_DURATION:
-                recovery = df[start_idx:end_idx]
-                recoveries.append(recovery)
-            in_recovery = False
-
-    return intervals, recoveries
+    return intervals
 
 def summarize_interval(interval_df):
     duration = (interval_df.index[-1] - interval_df.index[0]).total_seconds()
@@ -93,17 +74,13 @@ def summarize_interval(interval_df):
 
 def main():
     df = load_fit_data(sys.argv[1])
-    efforts, recoveries = tag_intervals(df)
+    laps = load_lap_data(sys.argv[1])
+    intervals = get_lap_intervals(df, laps)
 
-    print("\n--- Detected Efforts ---")
-    for i, interval in enumerate(efforts, 1):
+    print(f"\n--- Detected Laps ({len(intervals)} total) ---")
+    for i, interval in enumerate(intervals, 1):
         summary = summarize_interval(interval)
-        print(f"Interval {i}: {summary}")
-
-    print("\n--- Detected Recoveries ---")
-    for i, interval in enumerate(recoveries, 1):
-        summary = summarize_interval(interval)
-        print(f"Recovery {i}: {summary}")
+        print(f"Lap {i}: {summary}")
 
 if __name__ == "__main__":
     main()

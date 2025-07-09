@@ -3,11 +3,7 @@ import pandas as pd
 import numpy as np
 from datetime import timedelta
 import sys
-
-# === USER CONFIGURATION ===
-FTP = 242  # Functional Threshold Power (Watts)
-HRmax = 180  # Estimated maximum heart rate
-# ===========================
+from config import FTP, HRMAX
 
 def load_fit_data(filepath):
     fitfile = FitFile(filepath)
@@ -49,7 +45,7 @@ def process_fit_data(df):
     avg_te = df['torque_effectiveness'].mean()
 
     # HR zones
-    df['hr_pct'] = df['heart_rate'] / HRmax
+    df['hr_pct'] = df['heart_rate'] / HRMAX
     hr_zones = {
         'Z1 (<60%)': (0.0, 0.6),
         'Z2 (60–70%)': (0.6, 0.7),
