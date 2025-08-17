@@ -46,6 +46,23 @@ export const setConfig = async (config) => {
   return response.data
 }
 
+// Goals
+export const getGoals = async () => {
+  const response = await api.get('/api/goals')
+  return response.data
+}
+
+export const saveGoals = async (goal) => {
+  const response = await api.post('/api/goals', goal)
+  return response.data
+}
+
+// Quick Stats
+export const getQuickStats = async (dateRange) => {
+  const response = await api.post('/api/quick-stats', dateRange)
+  return response.data
+}
+
 export default {
   getCurrentUser,
   logout,
@@ -54,4 +71,7 @@ export default {
   updateSettings,
   getConfig,
   setConfig,
+  getGoals,
+  saveGoals,
+  getQuickStats,
 }

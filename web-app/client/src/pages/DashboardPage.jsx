@@ -30,7 +30,7 @@ const DashboardPage = ({ user }) => {
               View a quick summary of your recent training including last week's totals, 
               current fitness trends, and upcoming goals.
             </p>
-            <Link to="/analyze?quick=true" className="btn-primary">View Stats</Link>
+            <Link to="/quick-stats" className="btn-primary">View Stats</Link>
           </div>
           
           <div className="action-card">
@@ -39,7 +39,7 @@ const DashboardPage = ({ user }) => {
               Set and track your training goals. Monitor progress towards your target 
               TSS, distance, or time objectives.
             </p>
-            <Link to="/analyze" className="btn-primary">Set Goals</Link>
+            <Link to="/training-goals" className="btn-primary">Set Goals</Link>
           </div>
         </div>
         

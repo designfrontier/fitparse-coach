@@ -10,6 +10,8 @@ import InterviewPage from './pages/InterviewPage'
 import ResultsPage from './pages/ResultsPage'
 import SettingsPage from './pages/SettingsPage'
 import SetupPage from './pages/SetupPage'
+import TrainingGoalsPage from './pages/TrainingGoalsPage'
+import QuickStatsPage from './pages/QuickStatsPage'
 import LoadingSpinner from './components/LoadingSpinner'
 
 function App() {
@@ -70,6 +72,14 @@ function App() {
         <Route 
           path="/settings" 
           element={isAuthenticated ? <SettingsPage user={user} /> : <Navigate to="/" />} 
+        />
+        <Route 
+          path="/training-goals" 
+          element={isAuthenticated ? <TrainingGoalsPage /> : <Navigate to="/" />} 
+        />
+        <Route 
+          path="/quick-stats" 
+          element={isAuthenticated ? <QuickStatsPage /> : <Navigate to="/" />} 
         />
       </Route>
     </Routes>
