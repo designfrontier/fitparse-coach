@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analysis Results - Strava Coach</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+        .header {
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 20px 0;
+        }
+        .header-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            text-decoration: none;
+        }
+        .nav-links {
+            display: flex;
+            gap: 16px;
+        }
+        .nav-link {
+            color: #666;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+        .nav-link:hover {
+            background: #f8f9fa;
+        }
+        .main {
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 0 24px;
+        }
+        .progress-bar {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .progress-steps {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+        }
+        .progress-step {
+            text-align: center;
+            flex: 1;
+            position: relative;
+        }
+        .progress-step:before {
+            content: '';
+            position: absolute;
+            top: 15px;
+            left: -50%;
+            right: 50%;
+            height: 2px;
+            background: #667eea;
+            z-index: 0;
+        }
+        .progress-step:first-child:before {
+            display: none;
+        }
+        .step-circle {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #667eea;
+            border: 2px solid #667eea;
+            color: white;
+            margin: 0 auto 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 1;
+        }
+        .step-label {
+            font-size: 12px;
+            color: #666;
+        }
+        .results-card {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 32px;
+        }
+        .copy-instructions {
+            background: #f0f4ff;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+        .copy-instructions h3 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+        .copy-instructions ol {
+            color: #666;
+            padding-left: 20px;
+            margin: 0;
+        }
+        .copy-instructions li {
+            margin: 4px 0;
+        }
+        .output-container {
+            position: relative;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .copy-button {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: #667eea;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .copy-button:hover {
+            background: #5a67d8;
+        }
+        .copy-button.copied {
+            background: #48bb78;
+        }
+        .output-content {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #333;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 600px;
+            overflow-y: auto;
+            padding-right: 16px;
+        }
+        .output-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        .output-content::-webkit-scrollbar-track {
+            background: #e0e0e0;
+            border-radius: 4px;
+        }
+        .output-content::-webkit-scrollbar-thumb {
+            background: #999;
+            border-radius: 4px;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: space-between;
+        }
+        .btn-group {
+            display: flex;
+            gap: 16px;
+        }
+        .btn {
+            padding: 14px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: inline-block;
+        }
+        .btn-secondary {
+            color: #666;
+            border: 1px solid #e0e0e0;
+            background: white;
+        }
+        .btn-secondary:hover {
+            background: #f8f9fa;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+            border: none;
+        }
+        .btn-primary:hover {
+            background: #5a67d8;
+        }
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <a href="/dashboard" class="logo">🚴 Strava Coach</a>
+            <div class="nav-links">
+                <a href="/dashboard" class="nav-link">Dashboard</a>
+                <a href="/logout" class="nav-link">Logout</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="main">
+        <div class="progress-bar">
+            <div class="progress-steps">
+                <div class="progress-step">
+                    <div class="step-circle">✓</div>
+                    <div class="step-label">Select Dates</div>
+                </div>
+                <div class="progress-step">
+                    <div class="step-circle">✓</div>
+                    <div class="step-label">Fetch Activities</div>
+                </div>
+                <div class="progress-step">
+                    <div class="step-circle">✓</div>
+                    <div class="step-label">Interview</div>
+                </div>
+                <div class="progress-step">
+                    <div class="step-circle">✓</div>
+                    <div class="step-label">Results</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="results-card">
+            <h1>🎉 Analysis Complete!</h1>
+            <p class="subtitle">Your training data has been analyzed and formatted for AI coaching</p>
+            
+            <div class="success-message">
+                <span>✅</span>
+                <span>Your training report is ready to copy and paste into ChatGPT or Claude</span>
+            </div>
+            
+            <div class="copy-instructions">
+                <h3>📋 How to use this report:</h3>
+                <ol>
+                    <li>Click the "Copy to Clipboard" button below</li>
+                    <li>Open ChatGPT, Claude, or your preferred AI assistant</li>
+                    <li>Paste the report and ask for coaching feedback</li>
+                    <li>Consider asking specific questions about your training</li>
+                </ol>
+            </div>
+            
+            <div class="output-container">
+                <button class="copy-button" onclick="copyToClipboard()">
+                    <span id="copyIcon">📋</span>
+                    <span id="copyText">Copy to Clipboard</span>
+                </button>
+                <pre class="output-content" id="outputContent"><%= output %></pre>
+            </div>
+            
+            <div class="action-buttons">
+                <div class="btn-group">
+                    <a href="/analyze" class="btn btn-secondary">← New Analysis</a>
+                    <a href="/dashboard" class="btn btn-secondary">Dashboard</a>
+                </div>
+                <button onclick="downloadReport()" class="btn btn-primary">
+                    💾 Download Report
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function copyToClipboard() {
+            const content = document.getElementById('outputContent').textContent;
+            navigator.clipboard.writeText(content).then(() => {
+                const button = document.querySelector('.copy-button');
+                const icon = document.getElementById('copyIcon');
+                const text = document.getElementById('copyText');
+                
+                button.classList.add('copied');
+                icon.textContent = '✓';
+                text.textContent = 'Copied!';
+                
+                setTimeout(() => {
+                    button.classList.remove('copied');
+                    icon.textContent = '📋';
+                    text.textContent = 'Copy to Clipboard';
+                }, 2000);
+            }).catch(err => {
+                alert('Failed to copy. Please select the text manually and copy.');
+            });
+        }
+        
+        function downloadReport() {
+            const content = document.getElementById('outputContent').textContent;
+            const blob = new Blob([content], { type: 'text/markdown' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `training-report-${new Date().toISOString().split('T')[0]}.md`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

@@ -14,8 +14,9 @@ const SetupPage = () => {
     mutationFn: api.setConfig,
     onSuccess: () => {
       toast.success('Configuration saved! Redirecting...')
+      // Invalidate config query and reload page
       setTimeout(() => {
-        window.location.reload()
+        window.location.href = '/'
       }, 1000)
     },
     onError: (error) => {
@@ -45,8 +46,8 @@ const SetupPage = () => {
               <ul style={{ marginTop: '8px', listStyleType: 'disc' }}>
                 <li>Application Name: <code>Strava Coach</code></li>
                 <li>Category: <code>Training</code></li>
-                <li>Website: <code>http://localhost:5000</code></li>
-                <li>Authorization Callback Domain: <code>localhost:5000</code></li>
+                <li>Website: <code>http://localhost:5555</code></li>
+                <li>Authorization Callback Domain: <code>localhost:5555</code></li>
               </ul>
             </li>
             <li>Upload any image for the logo</li>

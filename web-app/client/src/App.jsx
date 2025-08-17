@@ -13,20 +13,33 @@ import SetupPage from './pages/SetupPage'
 import LoadingSpinner from './components/LoadingSpinner'
 
 function App() {
-  const { data: user, isLoading, error } = useQuery({
+  // First check if config exists
+  const { data: config, isLoading: configLoading, error: configError } = useQuery({
+    queryKey: ['config'],
+    queryFn: api.getConfig,
+    retry: false
+  })
+
+  // Then check for user, but only if config exists
+  const { data: user, isLoading: userLoading, error: userError } = useQuery({
     queryKey: ['user'],
     queryFn: api.getCurrentUser,
     retry: false,
-    refetchOnMount: true
+    refetchOnMount: true,
+    enabled: !configError && !!config
   })
 
-  if (isLoading) {
-    return <LoadingSpinner />
+  if (configLoading) {
+    return <LoadingSpinner text="Checking configuration..." />
   }
 
   // Check if setup is needed (no Strava config)
-  if (error?.response?.status === 503) {
+  if (configError?.response?.status === 503) {
     return <SetupPage />
+  }
+
+  if (userLoading) {
+    return <LoadingSpinner text="Loading user..." />
   }
 
   const isAuthenticated = !!user

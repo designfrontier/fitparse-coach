@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Settings - Strava Coach</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        background: #f5f5f5;
+        min-height: 100vh;
+      }
+      .header {
+        background: white;
+        border-bottom: 1px solid #e0e0e0;
+        padding: 20px 0;
+      }
+      .header-content {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 0 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .logo {
+        font-size: 24px;
+        font-weight: bold;
+        color: #333;
+        text-decoration: none;
+      }
+      .nav-links {
+        display: flex;
+        gap: 16px;
+      }
+      .nav-link {
+        color: #666;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        transition: background 0.2s;
+      }
+      .nav-link:hover {
+        background: #f8f9fa;
+      }
+      .nav-link.active {
+        background: #f0f4ff;
+        color: #667eea;
+      }
+      .main {
+        max-width: 800px;
+        margin: 40px auto;
+        padding: 0 24px;
+      }
+      .settings-card {
+        background: white;
+        border-radius: 12px;
+        padding: 32px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        margin-bottom: 24px;
+      }
+      h1 {
+        color: #333;
+        margin-bottom: 8px;
+      }
+      .subtitle {
+        color: #666;
+        margin-bottom: 32px;
+        line-height: 1.6;
+      }
+      .form-section {
+        margin-bottom: 40px;
+      }
+      .form-section:last-child {
+        margin-bottom: 0;
+      }
+      .section-title {
+        color: #333;
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 16px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #f0f4ff;
+      }
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+      }
+      .form-group {
+        display: flex;
+        flex-direction: column;
+      }
+      label {
+        color: #333;
+        font-weight: 600;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .help-text {
+        color: #999;
+        font-size: 14px;
+        margin-bottom: 8px;
+      }
+      .input-container {
+        position: relative;
+      }
+      input[type="number"] {
+        width: 100%;
+        padding: 12px;
+        padding-right: 48px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 16px;
+        font-family: inherit;
+        transition: border-color 0.2s;
+      }
+      input[type="number"]:focus {
+        outline: none;
+        border-color: #667eea;
+      }
+      .input-unit {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #999;
+        font-weight: 600;
+        pointer-events: none;
+      }
+      .info-box {
+        background: #f0f4ff;
+        border-left: 4px solid #667eea;
+        padding: 16px;
+        border-radius: 4px;
+        margin-bottom: 24px;
+      }
+      .info-box h3 {
+        color: #333;
+        margin-bottom: 8px;
+        font-size: 16px;
+      }
+      .info-box p {
+        color: #666;
+        line-height: 1.6;
+        margin: 0;
+      }
+      .current-values {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 24px;
+      }
+      .current-values h3 {
+        color: #333;
+        margin-bottom: 12px;
+        font-size: 16px;
+      }
+      .value-display {
+        display: flex;
+        gap: 32px;
+      }
+      .value-item {
+        text-align: center;
+      }
+      .value-number {
+        font-size: 24px;
+        font-weight: bold;
+        color: #667eea;
+      }
+      .value-label {
+        color: #666;
+        font-size: 14px;
+        margin-top: 4px;
+      }
+      .submit-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-top: 24px;
+        margin-top: 24px;
+        border-top: 1px solid #e0e0e0;
+      }
+      .btn {
+        padding: 14px 24px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.2s;
+        display: inline-block;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
+      }
+      .btn-secondary {
+        color: #666;
+        border: 1px solid #e0e0e0;
+        background: white;
+      }
+      .btn-secondary:hover {
+        background: #f8f9fa;
+      }
+      .btn-primary {
+        background: #667eea;
+        color: white;
+      }
+      .btn-primary:hover {
+        background: #5a67d8;
+      }
+      .success-message {
+        background: #d4edda;
+        color: #155724;
+        padding: 16px;
+        border-radius: 8px;
+        margin-bottom: 24px;
+        display: none;
+        align-items: center;
+        gap: 8px;
+      }
+      .success-message.show {
+        display: flex;
+      }
+      .zone-reference {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 16px;
+      }
+      .zone-reference h4 {
+        color: #333;
+        margin-bottom: 12px;
+        font-size: 14px;
+      }
+      .zones {
+        display: grid;
+        gap: 8px;
+      }
+      .zone-item {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        color: #666;
+      }
+      .zone-name {
+        font-weight: 600;
+      }
+      @media (max-width: 768px) {
+        .form-grid {
+          grid-template-columns: 1fr;
+        }
+        .value-display {
+          justify-content: space-around;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div class="header-content">
+        <a href="/dashboard" class="logo">🚴 Strava Coach</a>
+        <div class="nav-links">
+          <a href="/dashboard" class="nav-link">Dashboard</a>
+          <a href="/analyze" class="nav-link">Analyze</a>
+          <a href="/settings" class="nav-link active">Settings</a>
+          <a href="/logout" class="nav-link">Logout</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="settings-card">
+        <h1>⚙️ Training Settings</h1>
+        <p class="subtitle">
+          Configure your personal training parameters. These values are used to
+          calculate power zones, training stress score (TSS), and intensity
+          factors.
+        </p>
+
+        <div class="success-message" id="successMessage">
+          <span>✅</span>
+          <span>Settings updated successfully!</span>
+        </div>
+
+        <div class="current-values">
+          <h3>Current Values</h3>
+          <div class="value-display">
+            <div class="value-item">
+              <div class="value-number"><%= user.ftp || 250 %></div>
+              <div class="value-label">Watts (FTP)</div>
+            </div>
+            <div class="value-item">
+              <div class="value-number"><%= user.hrmax || 180 %></div>
+              <div class="value-label">BPM (HR Max)</div>
+            </div>
+          </div>
+        </div>
+
+        <form id="settingsForm" action="/settings" method="POST">
+          <div class="form-section">
+            <div class="section-title">🚴 Power Settings</div>
+
+            <div class="info-box">
+              <h3>Functional Threshold Power (FTP)</h3>
+              <p>
+                Your FTP is the highest power you can sustain for one hour. This
+                is used to calculate power zones and training intensity. If
+                you're unsure, use a recent 20-minute test result × 0.95, or
+                your best 1-hour power.
+              </p>
+            </div>
+
+            <div class="form-group">
+              <label for="ftp"> ⚡ Functional Threshold Power </label>
+              <p class="help-text">Your sustained power for 1 hour</p>
+              <div class="input-container">
+                <input
+                  type="number"
+                  id="ftp"
+                  name="ftp"
+                  value="<%= user.ftp || 250 %>"
+                  min="50"
+                  max="600"
+                  required
+                  onchange="updateZones()"
+                />
+                <span class="input-unit">W</span>
+              </div>
+            </div>
+
+            <div class="zone-reference" id="powerZones">
+              <h4>Power Zones (based on current FTP)</h4>
+              <div class="zones" id="powerZonesList">
+                <!-- Populated by JavaScript -->
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">❤️ Heart Rate Settings</div>
+
+            <div class="info-box">
+              <h3>Maximum Heart Rate (HR Max)</h3>
+              <p>
+                Your maximum heart rate is used to calculate heart rate zones.
+                Use your highest recorded heart rate from recent hard efforts,
+                or estimate using 220 - your age (less accurate but acceptable).
+              </p>
+            </div>
+
+            <div class="form-group">
+              <label for="hrmax"> 💗 Maximum Heart Rate </label>
+              <p class="help-text">Your highest recorded heart rate</p>
+              <div class="input-container">
+                <input
+                  type="number"
+                  id="hrmax"
+                  name="hrmax"
+                  value="<%= user.hrmax || 180 %>"
+                  min="120"
+                  max="220"
+                  required
+                  onchange="updateZones()"
+                />
+                <span class="input-unit">BPM</span>
+              </div>
+            </div>
+
+            <div class="zone-reference" id="hrZones">
+              <h4>Heart Rate Zones (based on current HR Max)</h4>
+              <div class="zones" id="hrZonesList">
+                <!-- Populated by JavaScript -->
+              </div>
+            </div>
+          </div>
+
+          <div class="submit-section">
+            <a href="/dashboard" class="btn btn-secondary"
+              >← Back to Dashboard</a
+            >
+            <button type="submit" class="btn btn-primary">Save Settings</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      function updateZones() {
+        const ftp = parseInt(document.getElementById("ftp").value) || 250;
+        const hrmax = parseInt(document.getElementById("hrmax").value) || 180;
+
+        // Update power zones
+        const powerZones = [
+          {
+            name: "Z1 Recovery",
+            range: `< ${Math.round(ftp * 0.55)}W`,
+            percent: "< 55%",
+          },
+          {
+            name: "Z2 Endurance",
+            range: `${Math.round(ftp * 0.55)}-${Math.round(ftp * 0.75)}W`,
+            percent: "55-75%",
+          },
+          {
+            name: "Z3 Tempo",
+            range: `${Math.round(ftp * 0.76)}-${Math.round(ftp * 0.9)}W`,
+            percent: "76-90%",
+          },
+          {
+            name: "Z4 Threshold",
+            range: `${Math.round(ftp * 0.91)}-${Math.round(ftp * 1.05)}W`,
+            percent: "91-105%",
+          },
+          {
+            name: "Z5 VO2Max",
+            range: `${Math.round(ftp * 1.06)}-${Math.round(ftp * 1.2)}W`,
+            percent: "106-120%",
+          },
+          {
+            name: "Z6+ Neuromuscular",
+            range: `> ${Math.round(ftp * 1.2)}W`,
+            percent: "> 120%",
+          },
+        ];
+
+        // Update HR zones
+        const hrZones = [
+          {
+            name: "Z1 Recovery",
+            range: `< ${Math.round(hrmax * 0.6)} BPM`,
+            percent: "< 60%",
+          },
+          {
+            name: "Z2 Aerobic",
+            range: `${Math.round(hrmax * 0.6)}-${Math.round(hrmax * 0.7)} BPM`,
+            percent: "60-70%",
+          },
+          {
+            name: "Z3 Aerobic",
+            range: `${Math.round(hrmax * 0.7)}-${Math.round(hrmax * 0.8)} BPM`,
+            percent: "70-80%",
+          },
+          {
+            name: "Z4 Threshold",
+            range: `${Math.round(hrmax * 0.8)}-${Math.round(hrmax * 0.9)} BPM`,
+            percent: "80-90%",
+          },
+          {
+            name: "Z5 VO2Max",
+            range: `${Math.round(hrmax * 0.9)}-${hrmax} BPM`,
+            percent: "90-100%",
+          },
+        ];
+
+        // Render power zones
+        const powerZonesList = document.getElementById("powerZonesList");
+        powerZonesList.innerHTML = powerZones
+          .map(
+            (zone) =>
+              `<div class="zone-item">
+                    <span class="zone-name">${zone.name}</span>
+                    <span>${zone.range} (${zone.percent})</span>
+                </div>`
+          )
+          .join("");
+
+        // Render HR zones
+        const hrZonesList = document.getElementById("hrZonesList");
+        hrZonesList.innerHTML = hrZones
+          .map(
+            (zone) =>
+              `<div class="zone-item">
+                    <span class="zone-name">${zone.name}</span>
+                    <span>${zone.range} (${zone.percent})</span>
+                </div>`
+          )
+          .join("");
+      }
+
+      // Form submission
+      document
+        .getElementById("settingsForm")
+        .addEventListener("submit", async function (e) {
+          e.preventDefault();
+
+          const formData = new FormData(this);
+
+          try {
+            const response = await fetch("/settings", {
+              method: "POST",
+              body: formData,
+            });
+
+            if (response.ok) {
+              document.getElementById("successMessage").classList.add("show");
+              setTimeout(() => {
+                document
+                  .getElementById("successMessage")
+                  .classList.remove("show");
+              }, 3000);
+            } else {
+              alert("Failed to save settings. Please try again.");
+            }
+          } catch (error) {
+            alert("Error saving settings. Please try again.");
+          }
+        });
+
+      // Initialize zones on page load
+      updateZones();
+    </script>
+  </body>
+</html>

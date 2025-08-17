@@ -41,8 +41,8 @@ npm install
 
 - Go to [Strava API Settings](https://www.strava.com/settings/api)
 - Create a new application with:
-  - Authorization Callback Domain: `localhost:5000`
-  - Website: `http://localhost:5000`
+  - Authorization Callback Domain: `localhost:5555`
+  - Website: `http://localhost:5555`
 
 ### 3. Environment Setup
 
@@ -74,9 +74,9 @@ npm run build
 
 ### 5. Access Application
 
-- Frontend: http://localhost:3000 (development)
-- Backend API: http://localhost:5000
-- Production: http://localhost:5000 (serves built React app)
+- Frontend: http://localhost:3333 (development)
+- Backend API: http://localhost:5555
+- Production: http://localhost:5555 (serves built React app)
 
 ## Usage
 

@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Training Interview - Strava Coach</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+        .header {
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 20px 0;
+        }
+        .header-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            text-decoration: none;
+        }
+        .nav-links {
+            display: flex;
+            gap: 16px;
+        }
+        .nav-link {
+            color: #666;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+        .nav-link:hover {
+            background: #f8f9fa;
+        }
+        .main {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 24px;
+        }
+        .progress-bar {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .progress-steps {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+        }
+        .progress-step {
+            text-align: center;
+            flex: 1;
+            position: relative;
+        }
+        .progress-step:before {
+            content: '';
+            position: absolute;
+            top: 15px;
+            left: -50%;
+            right: 50%;
+            height: 2px;
+            background: #e0e0e0;
+            z-index: 0;
+        }
+        .progress-step:first-child:before {
+            display: none;
+        }
+        .progress-step.completed:before {
+            background: #667eea;
+        }
+        .step-circle {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid #e0e0e0;
+            margin: 0 auto 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 1;
+        }
+        .progress-step.completed .step-circle {
+            background: #667eea;
+            border-color: #667eea;
+            color: white;
+        }
+        .progress-step.active .step-circle {
+            border-color: #667eea;
+            color: #667eea;
+        }
+        .step-label {
+            font-size: 12px;
+            color: #666;
+        }
+        .activities-summary {
+            background: #f0f4ff;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+        .activities-summary h3 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+        .activities-list {
+            color: #666;
+            font-size: 14px;
+        }
+        .form-card {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 32px;
+        }
+        .question-group {
+            margin-bottom: 32px;
+        }
+        .question-group:last-of-type {
+            margin-bottom: 0;
+        }
+        label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .question-help {
+            color: #999;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 80px;
+            transition: border-color 0.2s;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .radio-group {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        input[type="radio"] {
+            width: 20px;
+            height: 20px;
+        }
+        .submit-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 32px;
+            margin-top: 32px;
+            border-top: 1px solid #e0e0e0;
+        }
+        .btn-back {
+            color: #666;
+            text-decoration: none;
+            padding: 14px 24px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+        .btn-back:hover {
+            background: #f8f9fa;
+        }
+        .btn-submit {
+            background: #667eea;
+            color: white;
+            padding: 14px 32px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-submit:hover {
+            background: #5a67d8;
+        }
+        .section-title {
+            color: #667eea;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 24px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #f0f4ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <a href="/dashboard" class="logo">🚴 Strava Coach</a>
+            <div class="nav-links">
+                <a href="/dashboard" class="nav-link">Dashboard</a>
+                <a href="/logout" class="nav-link">Logout</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="main">
+        <div class="progress-bar">
+            <div class="progress-steps">
+                <div class="progress-step completed">
+                    <div class="step-circle">✓</div>
+                    <div class="step-label">Select Dates</div>
+                </div>
+                <div class="progress-step completed">
+                    <div class="step-circle">✓</div>
+                    <div class="step-label">Fetch Activities</div>
+                </div>
+                <div class="progress-step active">
+                    <div class="step-circle">3</div>
+                    <div class="step-label">Interview</div>
+                </div>
+                <div class="progress-step">
+                    <div class="step-circle">4</div>
+                    <div class="step-label">Results</div>
+                </div>
+            </div>
+        </div>
+        
+        <% if (activities && activities.length > 0) { %>
+        <div class="activities-summary">
+            <h3>📊 Activities Found: <%= activities.length %></h3>
+            <div class="activities-list">
+                <% activities.slice(0, 5).forEach(activity => { %>
+                    <%= activity.name %> • 
+                <% }); %>
+                <% if (activities.length > 5) { %>
+                    and <%= activities.length - 5 %> more...
+                <% } %>
+            </div>
+        </div>
+        <% } %>
+        
+        <div class="form-card">
+            <h1>Training Interview</h1>
+            <p class="subtitle">Help us understand your training week better</p>
+            
+            <form action="/interview" method="POST">
+                <div class="section-title">Training Context</div>
+                
+                <div class="question-group">
+                    <label for="goals">What were your main training goals this week?</label>
+                    <p class="question-help">Describe what you were trying to achieve</p>
+                    <textarea id="goals" name="goals" placeholder="e.g., Build endurance base, work on FTP, recovery week, prepare for event..."></textarea>
+                </div>
+                
+                <div class="question-group">
+                    <label for="feel">How did you feel during your rides?</label>
+                    <p class="question-help">Describe your overall sensations and energy levels</p>
+                    <textarea id="feel" name="feel" placeholder="e.g., Strong and powerful, tired but pushing through, legs felt heavy..."></textarea>
+                </div>
+                
+                <div class="section-title">Recovery & Lifestyle</div>
+                
+                <div class="question-group">
+                    <label for="fatigue">Rate your overall fatigue level (1-10)</label>
+                    <p class="question-help">1 = Fresh, 10 = Exhausted</p>
+                    <div class="radio-group">
+                        <% for(let i = 1; i <= 10; i++) { %>
+                        <div class="radio-option">
+                            <input type="radio" id="fatigue<%= i %>" name="fatigue" value="<%= i %>" <%= i === 5 ? 'checked' : '' %>>
+                            <label for="fatigue<%= i %>"><%= i %></label>
+                        </div>
+                        <% } %>
+                    </div>
+                </div>
+                
+                <div class="question-group">
+                    <label for="sleep">How was your sleep quality?</label>
+                    <textarea id="sleep" name="sleep" placeholder="e.g., 7-8 hours per night, restless, very good..."></textarea>
+                </div>
+                
+                <div class="question-group">
+                    <label for="nutrition">How was your nutrition and hydration?</label>
+                    <textarea id="nutrition" name="nutrition" placeholder="e.g., Ate well, struggled with fueling, stayed hydrated..."></textarea>
+                </div>
+                
+                <div class="question-group">
+                    <label for="stress">Any significant life stress or events?</label>
+                    <textarea id="stress" name="stress" placeholder="e.g., Work was busy, family commitments, feeling relaxed..."></textarea>
+                </div>
+                
+                <div class="section-title">Conditions & Performance</div>
+                
+                <div class="question-group">
+                    <label for="weather">Weather conditions during rides?</label>
+                    <textarea id="weather" name="weather" placeholder="e.g., Hot and humid, perfect conditions, windy, indoor trainer..."></textarea>
+                </div>
+                
+                <div class="question-group">
+                    <label for="achievements">Key achievements or breakthroughs?</label>
+                    <p class="question-help">What went particularly well?</p>
+                    <textarea id="achievements" name="achievements" placeholder="e.g., New power PR, completed all intervals, felt strong on climbs..."></textarea>
+                </div>
+                
+                <div class="question-group">
+                    <label for="challenges">Challenges or issues faced?</label>
+                    <p class="question-help">What didn't go as planned?</p>
+                    <textarea id="challenges" name="challenges" placeholder="e.g., Couldn't complete workout, knee pain, missed sessions..."></textarea>
+                </div>
+                
+                <div class="section-title">Looking Forward</div>
+                
+                <div class="question-group">
+                    <label for="nextWeek">What's your focus for next week?</label>
+                    <textarea id="nextWeek" name="nextWeek" placeholder="e.g., Increase volume, recovery, specific workouts, race preparation..."></textarea>
+                </div>
+                
+                <div class="submit-section">
+                    <a href="/analyze" class="btn-back">← Back</a>
+                    <button type="submit" class="btn-submit">Generate Report →</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

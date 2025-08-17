@@ -1,12 +1,46 @@
 # FitParse Coach
 
-Scripts for pulling stats out of .fit files to feed to ChatGPT for cycling coaching.
+A comprehensive platform for analyzing cycling training data and generating AI coaching reports, available in both command-line and web application formats.
 
-## Scripts
+## 🚴 Web Application (Recommended)
+
+Modern React + Node.js web app that connects to Strava API for seamless training analysis.
+
+### Features
+- 🔐 **Strava Integration**: OAuth authentication with automatic data sync
+- 📊 **Comprehensive Analysis**: Power zones, TSS, heart rate metrics, power curves
+- ⚙️ **Personal Settings**: User-specific FTP and HR Max configuration
+- 📝 **Training Interview**: Qualitative context gathering for complete analysis
+- 📋 **AI-Ready Reports**: Formatted output for ChatGPT/Claude coaching
+- 📱 **Modern UI**: Responsive React interface with real-time updates
+
+### Quick Start
+```bash
+cd web-app
+npm install
+
+# Start backend API
+npm run dev
+
+# In another terminal, start React frontend
+cd client
+npm install
+npm run dev
+```
+
+Visit http://localhost:3333 and follow the setup wizard to connect your Strava account.
+
+📖 **[Full Web App Documentation →](web-app/README.md)**
+
+---
+
+## 🖥️ Command Line Scripts
+
+Python scripts for analyzing local .fit files directly.
 
 ### Individual Ride Analysis
 For analyzing a single ride, run both scripts on the same file:
-- `python parse {filepath.fit}` - Overall workout statistics
+- `python parse {filepath.fit}` - Overall workout statistics  
 - `python intervals {filepath.fit}` - Lap/interval breakdown
 
 Paste the combined output to ChatGPT for coaching analysis.
@@ -29,14 +63,28 @@ The weekly review script will:
 5. Conduct an interactive interview about your training week
 6. Output everything in markdown format for ChatGPT
 
-## Setup
-
+### Setup
 ```bash
 pip install fitparse pandas numpy
 ```
 
-## Configuration
-
+### Configuration
 Edit `config.py` to set your personal parameters:
 - `FTP` - Your Functional Threshold Power in watts
 - `HRMAX` - Your maximum heart rate in bpm
+
+---
+
+## 🎯 Which Version to Use?
+
+**Choose the Web App if you:**
+- Want seamless Strava integration
+- Prefer a modern UI experience
+- Need user-specific settings storage
+- Want automated data fetching
+
+**Choose Command Line if you:**
+- Have local .fit files to analyze
+- Prefer working in terminal
+- Don't want to set up Strava API
+- Need to analyze files not on Strava
