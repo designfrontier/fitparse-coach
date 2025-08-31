@@ -2,4 +2,14 @@ node_modules
 # Keep environment variables out of version control
 .env
 
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Prisma generated files
 /generated/prisma
+
+# Test files
+test.db
+*.test.db
