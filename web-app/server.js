@@ -5,6 +5,7 @@ const path = require("path");
 const axios = require("axios");
 const { Sequelize, DataTypes } = require("sequelize");
 const { format, subDays, startOfWeek, endOfWeek } = require("date-fns");
+const AICoachingService = require("./services/aiCoaching");
 require("dotenv").config();
 
 const app = express();
@@ -50,6 +51,14 @@ const sequelize = new Sequelize({
   logging: false,
 });
 
+// Initialize AI Coaching Service
+const aiCoach = new AICoachingService({
+  provider: process.env.AI_PROVIDER || 'openai',
+  apiKey: process.env.OPENAI_API_KEY,
+  model: process.env.AI_MODEL || 'gpt-4-turbo-preview',
+  slidingWindowSize: parseInt(process.env.AI_SLIDING_WINDOW || '10'),
+});
+
 // Models
 const User = sequelize.define("User", {
   stravaId: {
@@ -69,6 +78,11 @@ const User = sequelize.define("User", {
   hrmax: {
     type: DataTypes.INTEGER,
     defaultValue: DEFAULT_HRMAX,
+  },
+  isFastTwitch: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: null,
+    comment: "Fast-twitch dominant athlete. Determined by vertical jump: Men >= 20 inches, Women >= 14 inches",
   },
 });
 
@@ -573,6 +587,7 @@ app.get("/api/user", async (req, res) => {
       lastname: user.lastname,
       ftp: user.ftp,
       hrmax: user.hrmax,
+      isFastTwitch: user.isFastTwitch,
     });
   } catch (error) {
     res.status(500).json({ error: "Server error" });
@@ -752,12 +767,18 @@ app.post("/api/interview", requireAuth, (req, res) => {
 });
 
 app.put("/api/settings", requireAuth, async (req, res) => {
-  const { ftp, hrmax } = req.body;
+  const { ftp, hrmax, isFastTwitch } = req.body;
 
   try {
     const user = await User.findByPk(req.session.userId);
     user.ftp = parseInt(ftp);
     user.hrmax = parseInt(hrmax);
+    
+    // Update fast twitch status if provided
+    if (isFastTwitch !== undefined) {
+      user.isFastTwitch = isFastTwitch;
+    }
+    
     await user.save();
 
     res.json({
@@ -768,6 +789,7 @@ app.put("/api/settings", requireAuth, async (req, res) => {
         lastname: user.lastname,
         ftp: user.ftp,
         hrmax: user.hrmax,
+        isFastTwitch: user.isFastTwitch,
       },
     });
   } catch (error) {
@@ -899,6 +921,137 @@ app.post("/api/quick-stats", requireAuth, async (req, res) => {
   } catch (error) {
     console.error("Error fetching quick stats:", error);
     res.status(500).json({ error: "Failed to fetch stats" });
+  }
+});
+
+// AI Coaching endpoints
+app.post("/api/coach/message", requireAuth, async (req, res) => {
+  try {
+    const { message, includeRecentData } = req.body;
+    const user = await User.findByPk(req.session.userId);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Get recent training data if requested
+    let trainingData = null;
+    if (includeRecentData) {
+      const endDate = new Date();
+      const startDate = subDays(endDate, 7);
+      
+      const activities = await getActivitiesInRange(
+        user,
+        startDate,
+        endDate
+      );
+      
+      trainingData = {
+        weeklyTSS: activities.reduce((sum, act) => sum + (act.tss || 0), 0),
+        activities: activities.slice(0, 5).map(act => ({
+          name: act.name,
+          date: act.startDate,
+          tss: act.tss,
+          avgPower: act.avgPower,
+          hrDrift: act.hrDrift,
+          intensityFactor: act.intensityFactor
+        }))
+      };
+    }
+
+    // Send message to AI coach
+    const response = await aiCoach.sendCoachingMessage(
+      user,
+      message,
+      trainingData
+    );
+
+    res.json({ response });
+  } catch (error) {
+    console.error("AI coaching error:", error);
+    res.status(500).json({ error: "Failed to get coaching response" });
+  }
+});
+
+app.post("/api/coach/analyze-workout", requireAuth, async (req, res) => {
+  try {
+    const { activityId } = req.body;
+    const user = await User.findByPk(req.session.userId);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Get detailed activity analysis
+    const activity = await analyzeActivity(user, activityId);
+    
+    if (!activity) {
+      return res.status(404).json({ error: "Activity not found" });
+    }
+
+    // Create structured message for AI coach
+    const message = `Please analyze this workout and provide specific feedback:
+    
+Workout: ${activity.name}
+Duration: ${Math.round(activity.durationSec / 60)} minutes
+Average Power: ${activity.avgPower}W
+Normalized Power: ${activity.weightedAvgPower}W
+Intensity Factor: ${activity.intensityFactor}
+TSS: ${activity.tss}
+HR Drift: ${activity.hrDrift}%
+Power Zones: ${JSON.stringify(activity.powerZones)}
+HR Zones: ${JSON.stringify(activity.hrZones)}`;
+
+    const response = await aiCoach.sendCoachingMessage(
+      user,
+      message,
+      activity
+    );
+
+    res.json({ response, activity });
+  } catch (error) {
+    console.error("Workout analysis error:", error);
+    res.status(500).json({ error: "Failed to analyze workout" });
+  }
+});
+
+app.post("/api/coach/clear-history", requireAuth, async (req, res) => {
+  try {
+    aiCoach.clearHistory(req.session.userId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Clear history error:", error);
+    res.status(500).json({ error: "Failed to clear conversation history" });
+  }
+});
+
+app.put("/api/coach/settings", requireAuth, async (req, res) => {
+  try {
+    const { slidingWindowSize, provider, model } = req.body;
+    
+    if (slidingWindowSize) {
+      aiCoach.setSlidingWindowSize(slidingWindowSize);
+    }
+    
+    if (provider || model) {
+      aiCoach.switchProvider(
+        provider || aiCoach.provider,
+        null, // Keep existing API key
+        model || aiCoach.model
+      );
+    }
+    
+    res.json({ 
+      success: true,
+      settings: {
+        slidingWindowSize: aiCoach.slidingWindowSize,
+        provider: aiCoach.provider,
+        model: aiCoach.model
+      }
+    });
+  } catch (error) {
+    console.error("Update coach settings error:", error);
+    res.status(500).json({ error: "Failed to update settings" });
   }
 });
 
