@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             Int             @id @default(autoincrement())
+  stravaId       Int             @unique
+  firstname      String?
+  lastname       String?
+  accessToken    String?
+  refreshToken   String?
+  expiresAt      Int?
+  ftp            Int             @default(250)
+  hrmax          Int             @default(180)
+  isFastTwitch   Boolean?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  activityCaches ActivityCache[]
+  goals          Goal[]
+
+  @@map("Users")
+}
+
+model ActivityCache {
+  id               Int      @id @default(autoincrement())
+  userId           Int
+  activityId       BigInt   @unique
+  lastAnalyzedDate DateTime
+  analysisData     String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  user             User     @relation(fields: [userId], references: [id])
+
+  @@map("ActivityCaches")
+}
+
+model Goal {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  type      GoalType
+  isActive  Boolean  @default(true)
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("Goals")
+}
+
+model Config {
+  key       String   @id
+  value     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("Configs")
+}
+
+enum GoalType {
+  weekly
+  monthly
+  season
+}

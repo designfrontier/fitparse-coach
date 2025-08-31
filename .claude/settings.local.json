@@ -4,7 +4,12 @@
       "Bash(true)",
       "Bash(grep:*)",
       "WebSearch",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(npm install:*)",
+      "Bash(npx prisma:*)",
+      "Bash(sqlite3:*)",
+      "Bash(node:*)",
+      "Bash(npm run test:run:*)"
     ],
     "deny": []
   }

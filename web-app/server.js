@@ -3,9 +3,9 @@ const session = require("express-session");
 const cors = require("cors");
 const path = require("path");
 const axios = require("axios");
-const { Sequelize, DataTypes } = require("sequelize");
 const { format, subDays, startOfWeek, endOfWeek } = require("date-fns");
 const AICoachingService = require("./services/aiCoaching");
+const prisma = require("./lib/prisma");
 require("dotenv").config();
 
 const app = express();
@@ -44,12 +44,7 @@ app.use(
   })
 );
 
-// Database setup
-const sequelize = new Sequelize({
-  dialect: "sqlite",
-  storage: "./strava_coach.db",
-  logging: false,
-});
+// Database connection is handled by Prisma
 
 // Initialize AI Coaching Service
 const aiCoach = new AICoachingService({
@@ -59,82 +54,10 @@ const aiCoach = new AICoachingService({
   slidingWindowSize: parseInt(process.env.AI_SLIDING_WINDOW || '10'),
 });
 
-// Models
-const User = sequelize.define("User", {
-  stravaId: {
-    type: DataTypes.INTEGER,
-    unique: true,
-    allowNull: false,
-  },
-  firstname: DataTypes.STRING,
-  lastname: DataTypes.STRING,
-  accessToken: DataTypes.TEXT,
-  refreshToken: DataTypes.TEXT,
-  expiresAt: DataTypes.INTEGER,
-  ftp: {
-    type: DataTypes.INTEGER,
-    defaultValue: DEFAULT_FTP,
-  },
-  hrmax: {
-    type: DataTypes.INTEGER,
-    defaultValue: DEFAULT_HRMAX,
-  },
-  isFastTwitch: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: null,
-    comment: "Fast-twitch dominant athlete. Determined by vertical jump: Men >= 20 inches, Women >= 14 inches",
-  },
-});
+// Database models are defined in prisma/schema.prisma
 
-const ActivityCache = sequelize.define("ActivityCache", {
-  userId: {
-    type: DataTypes.INTEGER,
-    references: {
-      model: User,
-      key: "id",
-    },
-  },
-  activityId: {
-    type: DataTypes.BIGINT,
-    unique: true,
-  },
-  activityDate: DataTypes.DATE,
-  data: DataTypes.TEXT, // JSON string
-});
 
-const Config = sequelize.define("Config", {
-  key: {
-    type: DataTypes.STRING,
-    primaryKey: true,
-  },
-  value: DataTypes.TEXT,
-});
 
-const Goal = sequelize.define("Goal", {
-  userId: {
-    type: DataTypes.INTEGER,
-    references: {
-      model: User,
-      key: "id",
-    },
-  },
-  title: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  description: DataTypes.TEXT,
-  category: DataTypes.STRING,
-  targetValue: DataTypes.STRING,
-  deadline: DataTypes.DATE,
-  type: {
-    type: DataTypes.ENUM('weekly', 'monthly', 'season'),
-    defaultValue: 'weekly',
-  },
-  completed: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: false,
-  },
-});
 
 // Strava API configuration
 const REDIRECT_URI = "http://localhost:5555/auth/callback";
@@ -142,8 +65,12 @@ const REDIRECT_URI = "http://localhost:5555/auth/callback";
 // Helper function to get current config
 async function getStravaConfig() {
   try {
-    const clientIdConfig = await Config.findByPk('STRAVA_CLIENT_ID');
-    const clientSecretConfig = await Config.findByPk('STRAVA_CLIENT_SECRET');
+    const clientIdConfig = await prisma.config.findUnique({
+      where: { key: 'STRAVA_CLIENT_ID' }
+    });
+    const clientSecretConfig = await prisma.config.findUnique({
+      where: { key: 'STRAVA_CLIENT_SECRET' }
+    });
     
     return {
       clientId: clientIdConfig?.value || process.env.STRAVA_CLIENT_ID,
@@ -174,10 +101,14 @@ async function getValidToken(user) {
       });
 
       const tokens = response.data;
-      user.accessToken = tokens.access_token;
-      user.refreshToken = tokens.refresh_token;
-      user.expiresAt = tokens.expires_at;
-      await user.save();
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          accessToken: tokens.access_token,
+          refreshToken: tokens.refresh_token,
+          expiresAt: tokens.expires_at,
+        }
+      });
 
       return tokens.access_token;
     } catch (error) {
@@ -576,7 +507,9 @@ app.get("/api/user", async (req, res) => {
   }
 
   try {
-    const user = await User.findByPk(req.session.userId);
+    const user = await prisma.user.findUnique({
+      where: { id: req.session.userId }
+    });
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -665,22 +598,30 @@ app.get("/auth/callback", async (req, res) => {
     const { athlete, access_token, refresh_token, expires_at } = response.data;
 
     // Save or update user
-    let user = await User.findOne({ where: { stravaId: athlete.id } });
+    let user = await prisma.user.findUnique({ 
+      where: { stravaId: athlete.id } 
+    });
 
     if (!user) {
-      user = await User.create({
-        stravaId: athlete.id,
-        firstname: athlete.firstname,
-        lastname: athlete.lastname,
-        accessToken: access_token,
-        refreshToken: refresh_token,
-        expiresAt: expires_at,
+      user = await prisma.user.create({
+        data: {
+          stravaId: athlete.id,
+          firstname: athlete.firstname,
+          lastname: athlete.lastname,
+          accessToken: access_token,
+          refreshToken: refresh_token,
+          expiresAt: expires_at,
+        }
       });
     } else {
-      user.accessToken = access_token;
-      user.refreshToken = refresh_token;
-      user.expiresAt = expires_at;
-      await user.save();
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          accessToken: access_token,
+          refreshToken: refresh_token,
+          expiresAt: expires_at,
+        }
+      });
     }
 
     req.session.userId = user.id;
@@ -770,16 +711,23 @@ app.put("/api/settings", requireAuth, async (req, res) => {
   const { ftp, hrmax, isFastTwitch } = req.body;
 
   try {
-    const user = await User.findByPk(req.session.userId);
-    user.ftp = parseInt(ftp);
-    user.hrmax = parseInt(hrmax);
+    const user = await prisma.user.findUnique({
+      where: { id: req.session.userId }
+    });
+    const updateData = {
+      ftp: parseInt(ftp),
+      hrmax: parseInt(hrmax),
+    };
     
     // Update fast twitch status if provided
     if (isFastTwitch !== undefined) {
-      user.isFastTwitch = isFastTwitch;
+      updateData.isFastTwitch = isFastTwitch;
     }
     
-    await user.save();
+    await prisma.user.update({
+      where: { id: user.id },
+      data: updateData
+    });
 
     res.json({
       success: true,
@@ -801,9 +749,9 @@ app.put("/api/settings", requireAuth, async (req, res) => {
 // Goals API
 app.get("/api/goals", requireAuth, async (req, res) => {
   try {
-    const goals = await Goal.findAll({
+    const goals = await prisma.goal.findMany({
       where: { userId: req.session.userId },
-      order: [['createdAt', 'DESC']]
+      orderBy: { createdAt: 'desc' }
     });
     res.json(goals);
   } catch (error) {
@@ -814,9 +762,11 @@ app.get("/api/goals", requireAuth, async (req, res) => {
 
 app.post("/api/goals", requireAuth, async (req, res) => {
   try {
-    const goal = await Goal.create({
-      ...req.body,
-      userId: req.session.userId
+    const goal = await prisma.goal.create({
+      data: {
+        ...req.body,
+        userId: req.session.userId
+      }
     });
     res.json(goal);
   } catch (error) {
@@ -928,7 +878,9 @@ app.post("/api/quick-stats", requireAuth, async (req, res) => {
 app.post("/api/coach/message", requireAuth, async (req, res) => {
   try {
     const { message, includeRecentData } = req.body;
-    const user = await User.findByPk(req.session.userId);
+    const user = await prisma.user.findUnique({
+      where: { id: req.session.userId }
+    });
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
@@ -976,7 +928,9 @@ app.post("/api/coach/message", requireAuth, async (req, res) => {
 app.post("/api/coach/analyze-workout", requireAuth, async (req, res) => {
   try {
     const { activityId } = req.body;
-    const user = await User.findByPk(req.session.userId);
+    const user = await prisma.user.findUnique({
+      where: { id: req.session.userId }
+    });
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
@@ -1060,23 +1014,12 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public/dist/index.html"));
 });
 
-// Initialize database and start server
-async function initializeDatabase() {
+// Initialize server
+async function initializeServer() {
   try {
-    // First, try to add the new column if it doesn't exist
-    await sequelize.query(`
-      ALTER TABLE Users ADD COLUMN isFastTwitch BOOLEAN DEFAULT NULL
-    `).catch(err => {
-      // Column might already exist, that's okay
-      if (!err.message.includes('duplicate column name')) {
-        console.log('Note: isFastTwitch column may already exist or other issue:', err.message);
-      }
-    });
-
-    // Now sync normally (without alter to avoid foreign key issues)
-    await sequelize.sync();
-    
-    console.log("Database synced");
+    // Test database connection
+    await prisma.$connect();
+    console.log("Database connected");
     
     app.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`);
@@ -1086,8 +1029,8 @@ async function initializeDatabase() {
       console.log("Visit http://localhost:3333 to access the React frontend");
     });
   } catch (err) {
-    console.error("Failed to initialize database:", err);
+    console.error("Failed to initialize server:", err);
   }
 }
 
-initializeDatabase();
+initializeServer();
