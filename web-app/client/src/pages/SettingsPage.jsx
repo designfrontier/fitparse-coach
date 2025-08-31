@@ -12,7 +12,8 @@ const SettingsPage = ({ user }) => {
   const { register, handleSubmit, watch, setValue } = useForm({
     defaultValues: {
       ftp: user?.ftp || 250,
-      hrmax: user?.hrmax || 180
+      hrmax: user?.hrmax || 180,
+      isFastTwitch: user?.isFastTwitch || null
     }
   })
 
@@ -59,7 +60,8 @@ const SettingsPage = ({ user }) => {
   const onSubmit = (data) => {
     updateMutation.mutate({
       ftp: parseInt(data.ftp),
-      hrmax: parseInt(data.hrmax)
+      hrmax: parseInt(data.hrmax),
+      isFastTwitch: data.isFastTwitch === '' ? null : data.isFastTwitch === 'true'
     })
   }
 
@@ -83,6 +85,14 @@ const SettingsPage = ({ user }) => {
               <div className="value-item">
                 <div className="value-number">{user?.hrmax || 180}</div>
                 <div className="value-label">BPM (HR Max)</div>
+              </div>
+              <div className="value-item">
+                <div className="value-number">
+                  {user?.isFastTwitch === true ? '⚡' : user?.isFastTwitch === false ? '🏃' : '❓'}
+                </div>
+                <div className="value-label">
+                  {user?.isFastTwitch === true ? 'Fast-twitch' : user?.isFastTwitch === false ? 'Slow-twitch' : 'Unknown'}
+                </div>
               </div>
             </div>
           </div>
@@ -161,6 +171,38 @@ const SettingsPage = ({ user }) => {
                     </div>
                   ))}
                 </div>
+              </div>
+            </div>
+
+            <div className="form-section">
+              <div className="section-title">💪 Muscle Fiber Type</div>
+              
+              <div className="info-box">
+                <h3>Fast-Twitch Dominance</h3>
+                <p>
+                  Your muscle fiber type affects your training response and optimal workout types. 
+                  Fast-twitch athletes excel at short, explosive efforts but may need more recovery. 
+                  Slow-twitch athletes excel at endurance and can handle higher training volume.
+                </p>
+                <p className="measurement-guide">
+                  <strong>How to determine:</strong> Measure your vertical jump height.
+                  <br />• Men: ≥20 inches = Fast-twitch dominant
+                  <br />• Women: ≥14 inches = Fast-twitch dominant
+                </p>
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="isFastTwitch">🏃 Muscle Fiber Type</label>
+                <p className="help-text">Select based on your vertical jump test</p>
+                <select 
+                  id="isFastTwitch" 
+                  {...register('isFastTwitch')}
+                  className="select-input"
+                >
+                  <option value="">Not determined</option>
+                  <option value="true">Fast-twitch dominant (explosive)</option>
+                  <option value="false">Slow-twitch dominant (endurance)</option>
+                </select>
               </div>
             </div>
             

@@ -1,12 +1,16 @@
 import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { useMutation } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import api from '../services/api'
 import './ResultsPage.css'
 
 const ResultsPage = () => {
   const location = useLocation()
   const [copyText, setCopyText] = useState('Copy to Clipboard')
   const [copyIcon, setCopyIcon] = useState('📋')
+  const [aiResponse, setAiResponse] = useState(null)
+  const [isLoadingAI, setIsLoadingAI] = useState(false)
   
   const output = location.state?.output || 'No report available. Please complete the analysis process.'
 
@@ -37,6 +41,23 @@ const ResultsPage = () => {
     document.body.removeChild(a)
     window.URL.revokeObjectURL(url)
     toast.success('Report downloaded!')
+  }
+
+  const sendToAICoach = async () => {
+    setIsLoadingAI(true)
+    try {
+      const response = await api.sendCoachingMessage({
+        message: `Please analyze this training report and provide coaching feedback:\n\n${output}`,
+        includeRecentData: false
+      })
+      setAiResponse(response.response)
+      toast.success('AI coaching analysis complete!')
+    } catch (error) {
+      console.error('AI coaching error:', error)
+      toast.error('Failed to get AI coaching analysis. Please check your API key settings.')
+    } finally {
+      setIsLoadingAI(false)
+    }
   }
 
   return (
@@ -74,10 +95,41 @@ const ResultsPage = () => {
               <Link to="/analyze" className="btn btn-secondary">← New Analysis</Link>
               <Link to="/dashboard" className="btn btn-secondary">Dashboard</Link>
             </div>
-            <button onClick={downloadReport} className="btn btn-primary">
-              💾 Download Report
-            </button>
+            <div className="btn-group">
+              <button onClick={downloadReport} className="btn btn-primary">
+                💾 Download Report
+              </button>
+              <button 
+                onClick={sendToAICoach} 
+                className="btn btn-ai"
+                disabled={isLoadingAI}
+              >
+                {isLoadingAI ? '🔄 Analyzing...' : '🤖 Send to AI Coach'}
+              </button>
+            </div>
           </div>
+          
+          {aiResponse && (
+            <div className="ai-response">
+              <h3>🤖 AI Coaching Analysis</h3>
+              <div className="ai-content">
+                <pre>{aiResponse}</pre>
+              </div>
+              <button 
+                className="copy-button-small" 
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(aiResponse)
+                    toast.success('AI response copied!')
+                  } catch (err) {
+                    toast.error('Failed to copy')
+                  }
+                }}
+              >
+                📋 Copy AI Response
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

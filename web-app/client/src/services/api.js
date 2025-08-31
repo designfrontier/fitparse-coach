@@ -63,6 +63,27 @@ export const getQuickStats = async (dateRange) => {
   return response.data
 }
 
+// AI Coaching
+export const sendCoachingMessage = async (data) => {
+  const response = await api.post('/api/coach/message', data)
+  return response.data
+}
+
+export const analyzeWorkout = async (activityId) => {
+  const response = await api.post('/api/coach/analyze-workout', { activityId })
+  return response.data
+}
+
+export const clearCoachingHistory = async () => {
+  const response = await api.post('/api/coach/clear-history')
+  return response.data
+}
+
+export const updateCoachingSettings = async (settings) => {
+  const response = await api.put('/api/coach/settings', settings)
+  return response.data
+}
+
 export default {
   getCurrentUser,
   logout,
@@ -74,4 +95,8 @@ export default {
   getGoals,
   saveGoals,
   getQuickStats,
+  sendCoachingMessage,
+  analyzeWorkout,
+  clearCoachingHistory,
+  updateCoachingSettings,
 }

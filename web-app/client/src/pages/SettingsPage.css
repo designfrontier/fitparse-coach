@@ -188,6 +188,34 @@ input[type="number"]:focus {
   border-top: 1px solid #e0e0e0;
 }
 
+.select-input {
+  width: 100%;
+  padding: 14px;
+  font-size: 16px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.select-input:hover {
+  border-color: #667eea;
+}
+
+.select-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.measurement-guide {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e0e0e0;
+  line-height: 1.6;
+}
+
 .btn-primary {
   background: #667eea;
   color: white;

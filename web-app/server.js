@@ -1061,10 +1061,23 @@ app.get("*", (req, res) => {
 });
 
 // Initialize database and start server
-sequelize
-  .sync()
-  .then(() => {
+async function initializeDatabase() {
+  try {
+    // First, try to add the new column if it doesn't exist
+    await sequelize.query(`
+      ALTER TABLE Users ADD COLUMN isFastTwitch BOOLEAN DEFAULT NULL
+    `).catch(err => {
+      // Column might already exist, that's okay
+      if (!err.message.includes('duplicate column name')) {
+        console.log('Note: isFastTwitch column may already exist or other issue:', err.message);
+      }
+    });
+
+    // Now sync normally (without alter to avoid foreign key issues)
+    await sequelize.sync();
+    
     console.log("Database synced");
+    
     app.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`);
       console.log(
@@ -1072,7 +1085,9 @@ sequelize
       );
       console.log("Visit http://localhost:3333 to access the React frontend");
     });
-  })
-  .catch((err) => {
-    console.error("Failed to sync database:", err);
-  });
+  } catch (err) {
+    console.error("Failed to initialize database:", err);
+  }
+}
+
+initializeDatabase();
