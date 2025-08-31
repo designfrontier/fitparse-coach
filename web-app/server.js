@@ -550,8 +550,16 @@ app.post("/api/config", async (req, res) => {
 
   try {
     // Save to database
-    await Config.upsert({ key: 'STRAVA_CLIENT_ID', value: clientId });
-    await Config.upsert({ key: 'STRAVA_CLIENT_SECRET', value: clientSecret });
+    await prisma.config.upsert({
+      where: { key: 'STRAVA_CLIENT_ID' },
+      update: { value: clientId },
+      create: { key: 'STRAVA_CLIENT_ID', value: clientId }
+    });
+    await prisma.config.upsert({
+      where: { key: 'STRAVA_CLIENT_SECRET' },
+      update: { value: clientSecret },
+      create: { key: 'STRAVA_CLIENT_SECRET', value: clientSecret }
+    });
 
     res.json({ success: true });
   } catch (error) {
@@ -634,7 +642,9 @@ app.get("/auth/callback", async (req, res) => {
 
 app.post("/api/analyze", requireAuth, async (req, res) => {
   const { startDate, endDate } = req.body;
-  const user = await User.findByPk(req.session.userId);
+  const user = await prisma.user.findUnique({
+    where: { id: req.session.userId }
+  });
 
   // Fetch activities
   const activities = await fetchActivities(
@@ -778,7 +788,9 @@ app.post("/api/goals", requireAuth, async (req, res) => {
 // Quick Stats API
 app.post("/api/quick-stats", requireAuth, async (req, res) => {
   const { start, end } = req.body;
-  const user = await User.findByPk(req.session.userId);
+  const user = await prisma.user.findUnique({
+    where: { id: req.session.userId }
+  });
 
   try {
     // Fetch activities for the date range
