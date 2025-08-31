@@ -295,16 +295,61 @@ async function analyzeActivity(user, activityId) {
     if (streams.heartrate && streams.heartrate.data) {
       results.hrZones = calculateHrZones(streams.heartrate.data, user.hrmax);
 
-      // Calculate HR drift
+      // Calculate HR drift (intelligently excluding warmup and cooldown)
       const hrData = streams.heartrate.data;
-      if (hrData.length > 100) {
-        const half = Math.floor(hrData.length / 2);
-        const firstHalf = hrData.slice(0, half);
-        const secondHalf = hrData.slice(half);
+      let startIndex = 0;
+      let endIndex = hrData.length;
+      
+      // Check if we have laps to intelligently detect warmup/cooldown
+      if (laps && laps.length > 2) {
+        // Check first lap for warmup characteristics (10-15 min duration)
+        const firstLap = laps[0];
+        if (firstLap.elapsed_time >= 600 && firstLap.elapsed_time <= 900) {
+          // Skip first lap as warmup
+          startIndex = Math.min(firstLap.elapsed_time, hrData.length);
+        }
+        
+        // Check last lap for cooldown characteristics
+        const lastLap = laps[laps.length - 1];
+        // Check if last lap is low effort (Z1 - below 60% of max HR)
+        const z1Threshold = user.hrmax * 0.6;
+        if (lastLap.average_heartrate && lastLap.average_heartrate < z1Threshold) {
+          // Skip last lap as cooldown
+          endIndex = Math.max(0, hrData.length - lastLap.elapsed_time);
+        } else if (lastLap.average_watts && lastLap.max_watts) {
+          // Check for declining power (avg power much lower than max)
+          const powerDecline = (lastLap.max_watts - lastLap.average_watts) / lastLap.max_watts;
+          if (powerDecline > 0.3) { // 30% decline suggests cooldown
+            endIndex = Math.max(0, hrData.length - lastLap.elapsed_time);
+          }
+        }
+      } else {
+        // Fallback to time-based approach if no laps or too few laps
+        const warmupDuration = 600; // 10 minutes
+        const cooldownDuration = 300; // 5 minutes
+        
+        if (hrData.length > warmupDuration + cooldownDuration + 100) {
+          startIndex = warmupDuration;
+          endIndex = hrData.length - cooldownDuration;
+        }
+      }
+      
+      // Calculate HR drift on the main set
+      if (endIndex > startIndex + 100) {
+        const mainSetData = hrData.slice(startIndex, endIndex);
+        
+        // Split main set data in half
+        const half = Math.floor(mainSetData.length / 2);
+        const firstHalf = mainSetData.slice(0, half);
+        const secondHalf = mainSetData.slice(half);
+        
+        // Calculate averages
         const firstAvg =
           firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
         const secondAvg =
           secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
+        
+        // Calculate drift percentage
         results.hrDrift =
           Math.round(((secondAvg - firstAvg) / firstAvg) * 100 * 100) / 100;
       }
