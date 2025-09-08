@@ -11,6 +11,7 @@ require("dotenv").config();
 const app = express();
 const PORT = process.env.PORT || 5555;
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3333";
+const BASE_URL = process.env.BASE_URL || "http://localhost:5555";
 
 // Default values - will be overridden by user settings
 const DEFAULT_FTP = 250;
@@ -19,7 +20,7 @@ const DEFAULT_HRMAX = 180;
 // Middleware
 app.use(
   cors({
-    origin: FRONTEND_URL,
+    origin: [FRONTEND_URL, 'exp://192.168.86.242:8081', 'http://localhost:8081', 'exp://localhost:8081'],
     credentials: true,
   })
 );
@@ -60,7 +61,7 @@ const aiCoach = new AICoachingService({
 
 
 // Strava API configuration
-const REDIRECT_URI = "http://localhost:5555/auth/callback";
+const REDIRECT_URI = `${BASE_URL}/auth/callback`;
 
 // Helper function to get current config
 async function getStravaConfig() {
@@ -83,6 +84,27 @@ async function getStravaConfig() {
       clientSecret: process.env.STRAVA_CLIENT_SECRET
     };
   }
+}
+
+// Helper function to get activities in a date range with analysis
+async function getActivitiesInRange(user, startDate, endDate) {
+  const activities = await fetchActivities(user, startDate, endDate);
+  
+  // Filter for rides only
+  const rides = activities.filter(
+    (a) => a.type === "Ride" || a.type === "VirtualRide"
+  );
+  
+  // Analyze each activity
+  const analyzed = [];
+  for (const ride of rides) {
+    const analysis = await analyzeActivity(user, ride.id);
+    if (analysis) {
+      analyzed.push(analysis);
+    }
+  }
+  
+  return analyzed;
 }
 
 // Helper functions
@@ -239,64 +261,21 @@ async function analyzeActivity(user, activityId) {
     // Process HR zones if we have HR stream
     if (streams.heartrate && streams.heartrate.data) {
       results.hrZones = calculateHrZones(streams.heartrate.data, user.hrmax);
-
-      // Calculate HR drift (intelligently excluding warmup and cooldown)
-      const hrData = streams.heartrate.data;
-      let startIndex = 0;
-      let endIndex = hrData.length;
+    }
+    
+    // Calculate aerobic decoupling if we have both power and HR data
+    if (streams.watts && streams.watts.data && streams.heartrate && streams.heartrate.data) {
+      const aerobicDecoupling = calculateAerobicDecoupling(
+        streams.watts.data,
+        streams.heartrate.data,
+        laps,
+        user
+      );
       
-      // Check if we have laps to intelligently detect warmup/cooldown
-      if (laps && laps.length > 2) {
-        // Check first lap for warmup characteristics (10-15 min duration)
-        const firstLap = laps[0];
-        if (firstLap.elapsed_time >= 600 && firstLap.elapsed_time <= 900) {
-          // Skip first lap as warmup
-          startIndex = Math.min(firstLap.elapsed_time, hrData.length);
-        }
-        
-        // Check last lap for cooldown characteristics
-        const lastLap = laps[laps.length - 1];
-        // Check if last lap is low effort (Z1 - below 60% of max HR)
-        const z1Threshold = user.hrmax * 0.6;
-        if (lastLap.average_heartrate && lastLap.average_heartrate < z1Threshold) {
-          // Skip last lap as cooldown
-          endIndex = Math.max(0, hrData.length - lastLap.elapsed_time);
-        } else if (lastLap.average_watts && lastLap.max_watts) {
-          // Check for declining power (avg power much lower than max)
-          const powerDecline = (lastLap.max_watts - lastLap.average_watts) / lastLap.max_watts;
-          if (powerDecline > 0.3) { // 30% decline suggests cooldown
-            endIndex = Math.max(0, hrData.length - lastLap.elapsed_time);
-          }
-        }
-      } else {
-        // Fallback to time-based approach if no laps or too few laps
-        const warmupDuration = 600; // 10 minutes
-        const cooldownDuration = 300; // 5 minutes
-        
-        if (hrData.length > warmupDuration + cooldownDuration + 100) {
-          startIndex = warmupDuration;
-          endIndex = hrData.length - cooldownDuration;
-        }
-      }
-      
-      // Calculate HR drift on the main set
-      if (endIndex > startIndex + 100) {
-        const mainSetData = hrData.slice(startIndex, endIndex);
-        
-        // Split main set data in half
-        const half = Math.floor(mainSetData.length / 2);
-        const firstHalf = mainSetData.slice(0, half);
-        const secondHalf = mainSetData.slice(half);
-        
-        // Calculate averages
-        const firstAvg =
-          firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
-        const secondAvg =
-          secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
-        
-        // Calculate drift percentage
-        results.hrDrift =
-          Math.round(((secondAvg - firstAvg) / firstAvg) * 100 * 100) / 100;
+      if (aerobicDecoupling !== null) {
+        results.aerobicDecoupling = aerobicDecoupling;
+        // Keep hrDrift for backward compatibility
+        results.hrDrift = aerobicDecoupling;
       }
     }
 
@@ -373,6 +352,85 @@ function calculatePowerCurve(powerData) {
   }
 
   return powerCurve;
+}
+
+function calculateAerobicDecoupling(powerData, hrData, laps, user) {
+  // Aerobic Decoupling (%) = ((Pw:HR_second_half / Pw:HR_first_half) - 1) × 100
+  // Where Pw:HR = Average Normalized Power / Average Heart Rate
+  
+  if (!powerData || !hrData || powerData.length !== hrData.length || powerData.length < 200) {
+    return null;
+  }
+
+  let startIndex = 0;
+  let endIndex = powerData.length;
+  
+  // Intelligently exclude warmup and cooldown using laps if available
+  if (laps && laps.length > 2) {
+    // Check first lap for warmup characteristics (10-15 min duration)
+    const firstLap = laps[0];
+    if (firstLap.elapsed_time >= 600 && firstLap.elapsed_time <= 900) {
+      // Skip first lap as warmup
+      startIndex = Math.min(firstLap.elapsed_time, powerData.length);
+    }
+    
+    // Check last lap for cooldown characteristics
+    const lastLap = laps[laps.length - 1];
+    // Check if last lap is low effort (Z1 - below 60% of max HR)
+    const z1Threshold = user.hrmax * 0.6;
+    if (lastLap.average_heartrate && lastLap.average_heartrate < z1Threshold) {
+      // Skip last lap as cooldown
+      endIndex = Math.max(0, powerData.length - lastLap.elapsed_time);
+    } else if (lastLap.average_watts && lastLap.max_watts) {
+      // Check for declining power (avg power much lower than max)
+      const powerDecline = (lastLap.max_watts - lastLap.average_watts) / lastLap.max_watts;
+      if (powerDecline > 0.3) { // 30% decline suggests cooldown
+        endIndex = Math.max(0, powerData.length - lastLap.elapsed_time);
+      }
+    }
+  } else {
+    // Fallback to time-based approach if no laps or too few laps
+    const warmupDuration = 600; // 10 minutes
+    const cooldownDuration = 300; // 5 minutes
+    
+    if (powerData.length > warmupDuration + cooldownDuration + 100) {
+      startIndex = warmupDuration;
+      endIndex = powerData.length - cooldownDuration;
+    }
+  }
+  
+  // Calculate aerobic decoupling on the main set
+  if (endIndex <= startIndex + 100) {
+    return null;
+  }
+  
+  const mainSetPower = powerData.slice(startIndex, endIndex);
+  const mainSetHR = hrData.slice(startIndex, endIndex);
+  
+  // Split main set data in half
+  const half = Math.floor(mainSetPower.length / 2);
+  
+  const firstHalfPower = mainSetPower.slice(0, half);
+  const secondHalfPower = mainSetPower.slice(half);
+  const firstHalfHR = mainSetHR.slice(0, half);
+  const secondHalfHR = mainSetHR.slice(half);
+  
+  // Calculate normalized power for each half (simplified - using average as proxy)
+  // In a full implementation, you'd calculate proper normalized power
+  const firstHalfAvgPower = firstHalfPower.reduce((a, b) => a + b, 0) / firstHalfPower.length;
+  const secondHalfAvgPower = secondHalfPower.reduce((a, b) => a + b, 0) / secondHalfPower.length;
+  
+  const firstHalfAvgHR = firstHalfHR.reduce((a, b) => a + b, 0) / firstHalfHR.length;
+  const secondHalfAvgHR = secondHalfHR.reduce((a, b) => a + b, 0) / secondHalfHR.length;
+  
+  // Calculate Pw:HR ratios
+  const pwHRFirstHalf = firstHalfAvgPower / firstHalfAvgHR;
+  const pwHRSecondHalf = secondHalfAvgPower / secondHalfAvgHR;
+  
+  // Calculate aerobic decoupling percentage
+  const aerobicDecoupling = ((pwHRSecondHalf / pwHRFirstHalf) - 1) * 100;
+  
+  return Math.round(aerobicDecoupling * 100) / 100;
 }
 
 function generateCoachingOutput(activities, responses, dateRange) {
@@ -575,14 +633,21 @@ app.get("/auth/strava", async (req, res) => {
     return res.redirect("/setup");
   }
 
+  // Store the source (mobile or web) in session for redirect after auth
+  const source = req.query.source || 'web';
+  req.session.authSource = source;
+
   const authUrl =
     "https://www.strava.com/oauth/authorize?" +
     `client_id=${config.clientId}&` +
     `response_type=code&` +
-    `redirect_uri=${REDIRECT_URI}&` +
+    `redirect_uri=${encodeURIComponent(REDIRECT_URI)}&` +
     `approval_prompt=force&` +
     `scope=read,activity:read_all`;
 
+  console.log('Generated Auth URL:', authUrl);
+  console.log('REDIRECT_URI:', REDIRECT_URI);
+  console.log('Auth source:', source);
   res.redirect(authUrl);
 });
 
@@ -633,10 +698,237 @@ app.get("/auth/callback", async (req, res) => {
     }
 
     req.session.userId = user.id;
-    res.redirect(`${FRONTEND_URL}/dashboard`);
+    
+    // Check if this was a mobile auth request
+    const authSource = req.session.authSource || 'web';
+    
+    if (authSource === 'mobile') {
+      // For mobile apps, create a temporary auth token and redirect to deep link
+      const crypto = require('crypto');
+      const mobileAuthToken = crypto.randomBytes(32).toString('hex');
+      
+      // Store the token temporarily (expires in 5 minutes)
+      const expiresAt = Date.now() + (5 * 60 * 1000);
+      req.session[`mobileAuth_${mobileAuthToken}`] = {
+        userId: user.id,
+        expiresAt: expiresAt
+      };
+      
+      // Check if this is a development build (supports deep linking)
+      const userAgent = req.headers['user-agent'] || '';
+      const isDevBuild = req.query.dev === 'true'; // Allow override with ?dev=true
+      
+      if (isDevBuild) {
+        // Development build - use deep link
+        const deepLinkUrl = `ridedomestique://auth/callback?token=${mobileAuthToken}`;
+        res.redirect(deepLinkUrl);
+      } else {
+        // Expo Go or fallback - show the token page
+        res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Authentication Successful</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              text-align: center;
+              padding: 20px;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              color: white;
+              min-height: 100vh;
+              margin: 0;
+            }
+            .container {
+              max-width: 400px;
+              margin: 0 auto;
+              background: rgba(255,255,255,0.95);
+              color: #333;
+              padding: 30px;
+              border-radius: 20px;
+              box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            }
+            .icon { font-size: 50px; margin-bottom: 20px; }
+            h1 { margin-bottom: 20px; color: #667eea; font-size: 24px; }
+            p { margin-bottom: 15px; line-height: 1.5; }
+            .success { color: #48bb78; font-weight: bold; }
+            .token-container {
+              background: #f8f9ff;
+              border: 2px dashed #667eea;
+              padding: 15px;
+              border-radius: 8px;
+              margin: 20px 0;
+            }
+            .token {
+              font-family: monospace;
+              font-size: 12px;
+              color: #667eea;
+              font-weight: bold;
+              word-break: break-all;
+              background: white;
+              padding: 10px;
+              border-radius: 4px;
+              margin: 10px 0;
+            }
+            .copy-btn, .close-btn {
+              background: #667eea;
+              color: white;
+              border: none;
+              padding: 12px 20px;
+              border-radius: 8px;
+              font-size: 14px;
+              margin: 5px;
+              cursor: pointer;
+            }
+            .copy-btn { background: #48bb78; }
+            .instructions {
+              font-size: 14px;
+              color: #666;
+              margin-top: 15px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="icon">🚴‍♂️</div>
+            <h1>Authentication Successful!</h1>
+            <p class="success">Connected to Strava successfully</p>
+            
+            <div class="token-container">
+              <p><strong>Copy this code:</strong></p>
+              <div class="token" id="token">${mobileAuthToken}</div>
+              <button class="copy-btn" onclick="copyToken()">Copy Code</button>
+            </div>
+            
+            <p class="instructions">
+              1. Copy the code above<br>
+              2. Return to <strong>Ride Domestique</strong><br>
+              3. Tap "Paste Auth Code"<br>
+              4. Paste and confirm
+            </p>
+            
+            <button class="close-btn" onclick="window.close()">Close Page</button>
+          </div>
+          
+          <script>
+            function copyToken() {
+              const token = document.getElementById('token').textContent;
+              navigator.clipboard.writeText(token).then(() => {
+                const btn = document.querySelector('.copy-btn');
+                btn.textContent = 'Copied!';
+                btn.style.background = '#38a169';
+                setTimeout(() => {
+                  btn.textContent = 'Copy Code';
+                  btn.style.background = '#48bb78';
+                }, 2000);
+              }).catch(() => {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = token;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert('Code copied to clipboard!');
+              });
+            }
+          </script>
+        </body>
+        </html>
+      `);
+      }
+    } else {
+      // Web app redirect
+      res.redirect(`${FRONTEND_URL}/dashboard`);
+    }
   } catch (error) {
     console.error("Auth error:", error);
     res.status(500).send("Authentication failed");
+  }
+});
+
+// Endpoint for mobile apps to check auth status
+app.get("/api/auth/status", async (req, res) => {
+  if (req.session.userId) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: req.session.userId },
+        select: {
+          id: true,
+          stravaId: true,
+          firstname: true,
+          lastname: true,
+          ftp: true,
+          hrmax: true,
+          isFastTwitch: true,
+        }
+      });
+      
+      if (user) {
+        return res.json({ 
+          authenticated: true, 
+          user: user 
+        });
+      }
+    } catch (error) {
+      console.error("Auth status error:", error);
+    }
+  }
+  
+  res.json({ authenticated: false });
+});
+
+// Endpoint for mobile apps to exchange auth token for session
+app.post("/api/auth/mobile", async (req, res) => {
+  const { token } = req.body;
+  
+  if (!token) {
+    return res.status(400).json({ error: 'Token required' });
+  }
+  
+  const tokenKey = `mobileAuth_${token}`;
+  const authData = req.session[tokenKey];
+  
+  if (!authData) {
+    return res.status(400).json({ error: 'Invalid or expired token' });
+  }
+  
+  if (Date.now() > authData.expiresAt) {
+    delete req.session[tokenKey];
+    return res.status(400).json({ error: 'Token expired' });
+  }
+  
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: authData.userId },
+      select: {
+        id: true,
+        stravaId: true,
+        firstname: true,
+        lastname: true,
+        ftp: true,
+        hrmax: true,
+        isFastTwitch: true,
+      }
+    });
+    
+    if (user) {
+      // Set up the session for this mobile app
+      req.session.userId = user.id;
+      // Clean up the temporary token
+      delete req.session[tokenKey];
+      
+      return res.json({ 
+        authenticated: true, 
+        user: user 
+      });
+    }
+    
+    res.status(404).json({ error: 'User not found' });
+  } catch (error) {
+    console.error("Mobile auth error:", error);
+    res.status(500).json({ error: 'Authentication failed' });
   }
 });
 

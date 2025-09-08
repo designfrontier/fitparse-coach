@@ -20,10 +20,13 @@
     "cors": "^2.8.5",
     "date-fns": "^2.30.0",
     "dotenv": "^16.3.1",
+    "expo": "^53.0.20",
     "express": "^4.18.2",
     "express-session": "^1.17.3",
     "sequelize": "^6.35.0",
-    "sqlite3": "^5.1.6"
+    "sqlite3": "^5.1.6",
+    "expo-dev-client": "~5.2.4",
+    "expo-linking": "~7.1.7"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.8.0",
