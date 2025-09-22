@@ -1,18 +1,70 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import ReactMarkdown from 'react-markdown'
 import './DashboardPage.css'
 
 const DashboardPage = ({ user }) => {
+  const [latestAnalysis, setLatestAnalysis] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchLatestAnalysis()
+  }, [])
+
+  const fetchLatestAnalysis = async () => {
+    try {
+      const response = await fetch('/api/ai-analysis/latest', {
+        credentials: 'include'
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setLatestAnalysis(data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch latest analysis:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    })
+  }
+
   return (
     <div className="dashboard-page">
       <div className="main">
         <div className="welcome-card">
           <h1>Welcome back, {user.firstname}!</h1>
           <p>
-            Strava Coach helps you analyze your cycling training data and generate 
+            Strava Coach helps you analyze your cycling training data and generate
             comprehensive reports for AI coaching analysis. Select an option below to get started.
           </p>
         </div>
+
+        {latestAnalysis && (
+          <div className="latest-analysis-card">
+            <h2>📝 Latest AI Analysis</h2>
+            <div className="analysis-header">
+              <span className="analysis-date">
+                Week of {formatDate(latestAnalysis.weekStartDate)} - {formatDate(latestAnalysis.weekEndDate)}
+              </span>
+              <Link to="/analysis" className="view-all-link">View All Analyses →</Link>
+            </div>
+            <div className="analysis-content">
+              <ReactMarkdown>
+                {latestAnalysis.aiResponse.substring(0, 300) + '...'}
+              </ReactMarkdown>
+            </div>
+            <Link to={`/analysis/${latestAnalysis.id}`} className="btn-secondary">
+              Read Full Analysis
+            </Link>
+          </div>
+        )}
         
         <div className="action-cards">
           <div className="action-card">

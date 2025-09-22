@@ -1,4 +1,4 @@
-const axios = require('axios');
+const axios = require("axios");
 
 /**
  * AI Coaching Service
@@ -6,9 +6,9 @@ const axios = require('axios');
  */
 class AICoachingService {
   constructor(config = {}) {
-    this.provider = config.provider || 'openai';
+    this.provider = config.provider || "openai";
     this.apiKey = config.apiKey || process.env.OPENAI_API_KEY;
-    this.model = config.model || 'gpt-4-turbo-preview';
+    this.model = config.model || "gpt-4-turbo-preview";
     this.maxTokens = config.maxTokens || 4096;
     this.temperature = config.temperature || 0.7;
     this.slidingWindowSize = config.slidingWindowSize || 10;
@@ -30,10 +30,10 @@ class AICoachingService {
    */
   buildAthleteContext(user) {
     const fastTwitchInfo = this.getFastTwitchDescription(user.isFastTwitch);
-    
+
     return {
       role: "system",
-      content: `You are an expert cycling coach providing personalized training guidance. 
+      content: `You are an expert cycling coach providing personalized training guidance.
 
 ATHLETE PROFILE:
 - FTP: ${user.ftp}W
@@ -42,10 +42,10 @@ ATHLETE PROFILE:
 - Training Zones:
   * Z1 Recovery: <${Math.round(user.ftp * 0.55)}W
   * Z2 Endurance: ${Math.round(user.ftp * 0.55)}-${Math.round(user.ftp * 0.75)}W
-  * Z3 Tempo: ${Math.round(user.ftp * 0.75)}-${Math.round(user.ftp * 0.90)}W
-  * Z4 Threshold: ${Math.round(user.ftp * 0.90)}-${Math.round(user.ftp * 1.05)}W
-  * Z5 VO2Max: ${Math.round(user.ftp * 1.05)}-${Math.round(user.ftp * 1.20)}W
-  * Z6 Anaerobic: >${Math.round(user.ftp * 1.20)}W
+  * Z3 Tempo: ${Math.round(user.ftp * 0.75)}-${Math.round(user.ftp * 0.9)}W
+  * Z4 Threshold: ${Math.round(user.ftp * 0.9)}-${Math.round(user.ftp * 1.05)}W
+  * Z5 VO2Max: ${Math.round(user.ftp * 1.05)}-${Math.round(user.ftp * 1.2)}W
+  * Z6 Anaerobic: >${Math.round(user.ftp * 1.2)}W
 
 COACHING GUIDELINES:
 - Provide specific, actionable advice based on the training data
@@ -54,7 +54,7 @@ COACHING GUIDELINES:
 - Slow-twitch athletes excel at longer, steady efforts and can handle higher training volume
 - Always consider recent training load (TSS) when making recommendations
 - Monitor HR drift as an indicator of aerobic fitness and fatigue
-- Be encouraging but realistic about training stress and recovery needs`
+- Be encouraging but critical about training stress, training effectiveness, and recovery needs`,
     };
   }
 
@@ -75,7 +75,7 @@ COACHING GUIDELINES:
    */
   manageConversationHistory(userId, newMessage, response) {
     const history = this.getConversationHistory(userId);
-    
+
     // Add new exchange
     if (newMessage) {
       history.push({ role: "user", content: newMessage });
@@ -83,14 +83,16 @@ COACHING GUIDELINES:
     if (response) {
       history.push({ role: "assistant", content: response });
     }
-    
+
     // Apply sliding window (keep system message + last N messages)
     if (history.length > this.slidingWindowSize) {
-      const systemMessage = history.find(msg => msg.role === "system");
+      const systemMessage = history.find((msg) => msg.role === "system");
       const recentMessages = history.slice(-this.slidingWindowSize);
-      
+
       // Rebuild history with system message first
-      const newHistory = systemMessage ? [systemMessage, ...recentMessages.filter(m => m.role !== "system")] : recentMessages;
+      const newHistory = systemMessage
+        ? [systemMessage, ...recentMessages.filter((m) => m.role !== "system")]
+        : recentMessages;
       this.conversationHistory.set(userId, newHistory);
     }
   }
@@ -101,42 +103,46 @@ COACHING GUIDELINES:
   async sendCoachingMessage(user, message, trainingData = null) {
     try {
       const history = this.getConversationHistory(user.id);
-      
+
       // Build context message
       const systemMessage = this.buildAthleteContext(user);
-      
+
       // Add training data if provided
       let userMessage = message;
       if (trainingData) {
-        userMessage = `${message}\n\nRecent Training Data:\n${JSON.stringify(trainingData, null, 2)}`;
+        userMessage = `${message}\n\nRecent Training Data:\n${JSON.stringify(
+          trainingData,
+          null,
+          2
+        )}`;
       }
-      
+
       // Build messages array for API
       const messages = [
         systemMessage,
         ...history,
-        { role: "user", content: userMessage }
+        { role: "user", content: userMessage },
       ];
-      
+
       // Call the appropriate provider
       let response;
       switch (this.provider) {
-        case 'openai':
+        case "openai":
           response = await this.callOpenAI(messages);
           break;
-        case 'anthropic':
+        case "anthropic":
           response = await this.callAnthropic(messages);
           break;
         default:
           throw new Error(`Unsupported provider: ${this.provider}`);
       }
-      
+
       // Update conversation history
       this.manageConversationHistory(user.id, userMessage, response);
-      
+
       return response;
     } catch (error) {
-      console.error('AI Coaching error:', error);
+      console.error("AI Coaching error:", error);
       throw error;
     }
   }
@@ -146,21 +152,21 @@ COACHING GUIDELINES:
    */
   async callOpenAI(messages) {
     const response = await axios.post(
-      'https://api.openai.com/v1/chat/completions',
+      "https://api.openai.com/v1/chat/completions",
       {
         model: this.model,
         messages: messages,
         max_tokens: this.maxTokens,
-        temperature: this.temperature
+        temperature: this.temperature,
       },
       {
         headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json'
-        }
+          Authorization: `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json",
+        },
       }
     );
-    
+
     return response.data.choices[0].message.content;
   }
 
@@ -169,27 +175,27 @@ COACHING GUIDELINES:
    */
   async callAnthropic(messages) {
     // Convert OpenAI format to Anthropic format
-    const systemMessage = messages.find(m => m.role === 'system');
-    const conversationMessages = messages.filter(m => m.role !== 'system');
-    
+    const systemMessage = messages.find((m) => m.role === "system");
+    const conversationMessages = messages.filter((m) => m.role !== "system");
+
     const response = await axios.post(
-      'https://api.anthropic.com/v1/messages',
+      "https://api.anthropic.com/v1/messages",
       {
         model: this.model,
         system: systemMessage?.content,
         messages: conversationMessages,
         max_tokens: this.maxTokens,
-        temperature: this.temperature
+        temperature: this.temperature,
       },
       {
         headers: {
-          'x-api-key': this.apiKey,
-          'anthropic-version': '2023-06-01',
-          'Content-Type': 'application/json'
-        }
+          "x-api-key": this.apiKey,
+          "anthropic-version": "2023-06-01",
+          "Content-Type": "application/json",
+        },
       }
     );
-    
+
     return response.data.content[0].text;
   }
 

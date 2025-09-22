@@ -15,6 +15,13 @@ const { post: postQuickStats } = require("./routes/quick-stats");
 const { post: postConfig, get: getConfig } = require("./routes/config");
 const { get: getUser } = require("./routes/user");
 const {
+  get: getAIAnalyses,
+  getLatest: getLatestAIAnalysis,
+  getById: getAIAnalysisById,
+  post: postAIAnalysis,
+  delete: deleteAIAnalysis,
+} = require("./routes/ai-analysis");
+const {
   getAuthStatus,
   postAuthMobile,
   getAuthCallback,
@@ -556,6 +563,13 @@ app.put("/api/settings", requireAuth, async (req, res) => {
 // Goals API
 app.get("/api/goals", requireAuth, getGoals);
 app.post("/api/goals", requireAuth, postGoals);
+
+// AI Analysis API
+app.get("/api/ai-analysis", requireAuth, getAIAnalyses);
+app.get("/api/ai-analysis/latest", requireAuth, getLatestAIAnalysis);
+app.get("/api/ai-analysis/:id", requireAuth, getAIAnalysisById);
+app.post("/api/ai-analysis", requireAuth, postAIAnalysis);
+app.delete("/api/ai-analysis/:id", requireAuth, deleteAIAnalysis);
 
 // Quick Stats API
 app.post("/api/quick-stats", requireAuth, postQuickStats);

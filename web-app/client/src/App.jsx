@@ -12,6 +12,8 @@ import SettingsPage from './pages/SettingsPage'
 import SetupPage from './pages/SetupPage'
 import TrainingGoalsPage from './pages/TrainingGoalsPage'
 import QuickStatsPage from './pages/QuickStatsPage'
+import AnalysisHistoryPage from './pages/AnalysisHistoryPage'
+import AnalysisDetailPage from './pages/AnalysisDetailPage'
 import LoadingSpinner from './components/LoadingSpinner'
 
 function App() {
@@ -77,9 +79,17 @@ function App() {
           path="/training-goals" 
           element={isAuthenticated ? <TrainingGoalsPage /> : <Navigate to="/" />} 
         />
-        <Route 
-          path="/quick-stats" 
-          element={isAuthenticated ? <QuickStatsPage /> : <Navigate to="/" />} 
+        <Route
+          path="/quick-stats"
+          element={isAuthenticated ? <QuickStatsPage /> : <Navigate to="/" />}
+        />
+        <Route
+          path="/analysis"
+          element={isAuthenticated ? <AnalysisHistoryPage /> : <Navigate to="/" />}
+        />
+        <Route
+          path="/analysis/:id"
+          element={isAuthenticated ? <AnalysisDetailPage /> : <Navigate to="/" />}
         />
       </Route>
     </Routes>

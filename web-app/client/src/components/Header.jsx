@@ -37,14 +37,20 @@ const Header = ({ user }) => {
           >
             Dashboard
           </Link>
-          <Link 
-            to="/analyze" 
+          <Link
+            to="/analyze"
             className={`nav-link ${location.pathname === '/analyze' ? 'active' : ''}`}
           >
             Analyze
           </Link>
-          <Link 
-            to="/settings" 
+          <Link
+            to="/analysis"
+            className={`nav-link ${location.pathname === '/analysis' ? 'active' : ''}`}
+          >
+            AI Analysis
+          </Link>
+          <Link
+            to="/settings"
             className={`nav-link ${location.pathname === '/settings' ? 'active' : ''}`}
           >
             Settings

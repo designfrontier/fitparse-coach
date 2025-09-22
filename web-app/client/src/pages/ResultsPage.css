@@ -195,6 +195,8 @@ h1 {
   padding: 20px;
   margin-bottom: 16px;
   border: 1px solid #e0e0e0;
+  max-height: 600px;
+  overflow-y: auto;
 }
 
 .ai-content pre {
@@ -207,7 +209,77 @@ h1 {
   color: #333;
 }
 
-.copy-button-small {
+/* Markdown content styling */
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4 {
+  color: #333;
+  margin-top: 20px;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.markdown-content h1 {
+  font-size: 22px;
+}
+
+.markdown-content h2 {
+  font-size: 18px;
+}
+
+.markdown-content h3 {
+  font-size: 16px;
+}
+
+.markdown-content p {
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin-bottom: 12px;
+  padding-left: 20px;
+}
+
+.markdown-content li {
+  margin-bottom: 6px;
+  line-height: 1.6;
+}
+
+.markdown-content strong {
+  font-weight: 600;
+}
+
+.markdown-content em {
+  font-style: italic;
+}
+
+.markdown-content code {
+  background: #e9ecef;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 13px;
+}
+
+.markdown-content blockquote {
+  border-left: 3px solid #667eea;
+  padding-left: 12px;
+  margin: 12px 0;
+  color: #555;
+  font-style: italic;
+}
+
+.ai-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.copy-button-small,
+.save-button-small {
   padding: 10px 16px;
   background: white;
   border: 1px solid #e0e0e0;
@@ -220,6 +292,22 @@ h1 {
 .copy-button-small:hover {
   background: #f8f9fa;
   border-color: #667eea;
+}
+
+.save-button-small {
+  background: #667eea;
+  color: white;
+  border: 1px solid #667eea;
+}
+
+.save-button-small:hover:not(:disabled) {
+  background: #5a67d8;
+  border-color: #5a67d8;
+}
+
+.save-button-small:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 @media (max-width: 768px) {

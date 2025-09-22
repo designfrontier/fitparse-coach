@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
+import ReactMarkdown from 'react-markdown'
 import toast from 'react-hot-toast'
 import api from '../services/api'
 import './ResultsPage.css'
@@ -11,8 +12,10 @@ const ResultsPage = () => {
   const [copyIcon, setCopyIcon] = useState('📋')
   const [aiResponse, setAiResponse] = useState(null)
   const [isLoadingAI, setIsLoadingAI] = useState(false)
-  
+  const [isSaving, setIsSaving] = useState(false)
+
   const output = location.state?.output || 'No report available. Please complete the analysis process.'
+  const weekData = location.state?.weekData || null
 
   const copyToClipboard = async () => {
     try {
@@ -57,6 +60,48 @@ const ResultsPage = () => {
       toast.error('Failed to get AI coaching analysis. Please check your API key settings.')
     } finally {
       setIsLoadingAI(false)
+    }
+  }
+
+  const saveAIAnalysis = async () => {
+    if (!aiResponse) {
+      toast.error('No AI analysis to save')
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      // Extract week dates from the output or use defaults
+      const today = new Date()
+      const weekStart = new Date(today)
+      weekStart.setDate(today.getDate() - 7)
+
+      const payload = {
+        weekStartDate: weekStart.toISOString(),
+        weekEndDate: today.toISOString(),
+        weekData: output,
+        aiResponse: aiResponse
+      }
+
+      const response = await fetch('/api/ai-analysis', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(payload)
+      })
+
+      if (response.ok) {
+        toast.success('Analysis saved successfully!')
+      } else {
+        throw new Error('Failed to save analysis')
+      }
+    } catch (error) {
+      console.error('Save error:', error)
+      toast.error('Failed to save AI analysis')
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -112,22 +157,31 @@ const ResultsPage = () => {
           {aiResponse && (
             <div className="ai-response">
               <h3>🤖 AI Coaching Analysis</h3>
-              <div className="ai-content">
-                <pre>{aiResponse}</pre>
+              <div className="ai-content markdown-content">
+                <ReactMarkdown>{aiResponse}</ReactMarkdown>
               </div>
-              <button 
-                className="copy-button-small" 
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(aiResponse)
-                    toast.success('AI response copied!')
-                  } catch (err) {
-                    toast.error('Failed to copy')
-                  }
-                }}
-              >
-                📋 Copy AI Response
-              </button>
+              <div className="ai-actions">
+                <button
+                  className="copy-button-small"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(aiResponse)
+                      toast.success('AI response copied!')
+                    } catch (err) {
+                      toast.error('Failed to copy')
+                    }
+                  }}
+                >
+                  📋 Copy AI Response
+                </button>
+                <button
+                  className="save-button-small"
+                  onClick={saveAIAnalysis}
+                  disabled={isSaving}
+                >
+                  {isSaving ? '💾 Saving...' : '💾 Save Analysis'}
+                </button>
+              </div>
             </div>
           )}
         </div>
